@@ -13,26 +13,11 @@ import argparse
 import subprocess
 from collections import Counter
 
-# Suppress libpng iCCP sRGB warnings from Qt's internal PNG resources.
-# Qt built-in icons (QStyle standard pixmaps, QMessageBox icons, etc.) are
-# compiled into Qt resources with bad iCCP colour-profile chunks, and libpng
-# warns once per icon load (harmless but noisy).  Filter them at the stderr
-# level because the warnings come from C-level libpng, not Python logging.
-_orig_stderr = sys.stderr
+from src.core.libpng_silence import install as install_libpng_silence
 
-
-class _LibPngSilencer:
-    def write(self, s):
-        if 'libpng warning: iCCP' not in s:
-            if _orig_stderr is not None:
-                _orig_stderr.write(s)
-
-    def flush(self):
-        if _orig_stderr is not None:
-            _orig_stderr.flush()
-
-
-sys.stderr = _LibPngSilencer()
+# Before PyQt loads: Qt's bundled PNGs have bad iCCP profiles and libpng
+# writes those warnings to C stderr, which a sys.stderr wrapper never sees.
+install_libpng_silence()
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
