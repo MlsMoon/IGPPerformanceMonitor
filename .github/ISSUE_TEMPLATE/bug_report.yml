@@ -1,0 +1,53 @@
+name: Bug report
+description: Something is broken in capture, UI, export, or updates
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Security reports go to [SECURITY.md](../SECURITY.md), not here.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Help → About, or the GitHub Release tag
+      placeholder: "0.2.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you run it?
+      options:
+        - Installer (Setup EXE)
+        - Portable EXE
+        - From source
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs / CSV notes
+      description: Do not paste secrets. `temp/igp_debug.log` and capture CSVs are useful.

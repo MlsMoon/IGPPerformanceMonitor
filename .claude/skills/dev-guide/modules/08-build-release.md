@@ -1,0 +1,44 @@
+# 08 · Build / installer / GitHub Release
+
+## Key files
+
+- `VERSION` — semver single source
+- `CHANGELOG.md` — Help → Changelog
+- `assets/icon.png` / `assets/icon.ico` / `assets/logo.png` — window, EXE, installer, README
+- `Scripts/build.bat` — PyInstaller (main + updater)
+- `Scripts/build_installer.bat` + `Scripts/installer.iss` — Inno Setup 6
+- `Scripts/generate_manifest.py` — `app_manifest.json`
+- `.github/workflows/ci.yml` — offscreen tests
+- `.github/workflows/release.yml` — tag `vX.Y.Z` → artifacts + GitHub Release
+
+## Responsibilities
+
+Build the portable EXE, updater, Windows installer, and publish them on GitHub Releases. CI is the production publisher.
+
+## Pitfalls
+
+- **`build.bat` reads `VERSION`**, writes `build/generated/build_info.txt` = timestamp-gitsha (`APP_BUILD`, **not** the version).
+- **Bundle:** PresentMon, `VERSION`, `CHANGELOG.md`, `build_info.txt`, `assets/icon.png` (+ ico). New resources need `--add-data`.
+- **EXE icon** is `assets/icon.ico`. Window icon is `assets/icon.png`. Update **both** (and `logo.png` if the brand mark changes).
+- **`--uac-admin`** + installer `PrivilegesRequired=admin`. PresentMon needs elevation.
+- **Installer does not ship `auto_updater.exe`.** The client downloads it on update.
+- **CI sets `CI=true`** so `build.bat` skips `pause`.
+- **Inno Setup 6** (`ISCC.exe`) is required for the installer. CI installs it with Chocolatey.
+- **Publish path:** bump VERSION → changelog → tests → annotated tag `vX.Y.Z` → push tag → `release.yml`. Do not upload to object storage.
+- **Tag must match VERSION.** The workflow fails if `github.ref_name != v$(VERSION)`.
+- **Manifest hashes must be non-empty** 64-char hex. `generate_manifest.py` hashes local `dist\` files and points URLs at the **upcoming** tag assets.
+- **`previous`:** `generate_manifest.py` fetches the current latest manifest (best-effort) and embeds it when the version differs. First GitHub Release may have `previous: null`.
+- **GitHub `User-Agent`:** required for fetch/download.
+- **No secrets in scripts.** Release uses `GITHUB_TOKEN` only.
+- **Do not commit `third-party/ossutil.exe`.**
+
+## Checklist
+
+- [ ] New resource files → `--add-data` + frozen `resource_root()` path
+- [ ] Icon change → PNG + ICO + installer `SetupIconFile` + README logo
+- [ ] Version → only `VERSION`
+- [ ] Release → VERSION + CHANGELOG + tests + annotated tag + Actions green
+- [ ] Release assets include portable EXE, updater, Setup EXE, `app_manifest.json`
+
+---
+last_updated: 2026-09-17

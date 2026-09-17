@@ -1,0 +1,4 @@
+# Windows batch files require CRLF line endings. cmd.exe mangles LF-only .bat
+# files (e.g. `setlocal` -> `tlocal`, `echo` -> `ho` -> "not recognized"),
+# silently breaking build/upload scripts. Force CRLF on every checkout.
+*.bat text eol=crlf

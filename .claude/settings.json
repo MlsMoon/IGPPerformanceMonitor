@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'stamp=\"temp/.dev-guide-remind-$(git rev-parse --short HEAD 2>/dev/null || echo none)\"; s=$(git status --short src/ 2>/dev/null); g=$(git status --short .claude/skills/dev-guide/ 2>/dev/null); if [ -n \"$s\" ] && [ -z \"$g\" ] && [ ! -f \"$stamp\" ]; then mkdir -p temp 2>/dev/null; touch \"$stamp\" 2>/dev/null; echo \"[dev-guide] src/ changed but the dev-guide skill did not. If this touched data flow, module interfaces, pitfalls, or a new module, update .claude/skills/dev-guide/modules/0N-*.md per SKILL.md before finishing (remind once per commit).\" 1>&2; exit 2; fi; exit 0'"
+          }
+        ]
+      }
+    ]
+  }
+}

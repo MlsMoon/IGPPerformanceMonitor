@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish GitHub Release
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read VERSION
+        id: version
+        shell: pwsh
+        run: |
+          $v = (Get-Content -Raw VERSION).Trim()
+          if (-not $v) { throw "VERSION is empty" }
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+          echo "App version: $v"
+
+      - name: Check tag matches VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $expected = "v${{ steps.version.outputs.version }}"
+          if ($tag -ne $expected) {
+            throw "Tag $tag must equal $expected (VERSION file is the single source)"
+          }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Offscreen suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m src.tests
+
+      - name: Build EXEs
+        env:
+          CI: "true"
+        run: Scripts\build.bat --no-pause
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        run: Scripts\build_installer.bat
+
+      - name: Generate app_manifest.json
+        run: python Scripts\generate_manifest.py
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: IGP Performance Monitor ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/IGPPerformanceMonitor.exe
+            dist/auto_updater.exe
+            dist/IGPPerformanceMonitor-Setup-${{ steps.version.outputs.version }}.exe
+            dist/app_manifest.json
+          fail_on_unmatched_files: true

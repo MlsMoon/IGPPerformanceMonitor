@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "pyqt": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/SKILL.md",
+      "computedHash": "c54be4f4890f4b9bbc52c9194321cf38d7f50b67a17e48584e5d2f980364b2de"
+    },
+    "pyqt-core": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/core/SKILL.md",
+      "computedHash": "8a69c3b9a7399a4a13a1d764914988d0bb71a5b19d43524a6b60820c9a981435"
+    },
+    "pyqt-dialogs": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/dialogs/SKILL.md",
+      "computedHash": "d01dfc697e06ed422a7a51440236ded955643422c83ab936fdf2c678ff991a1e"
+    },
+    "pyqt-styling": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/styling/SKILL.md",
+      "computedHash": "fc52f71030b62df404ece9965e6986fef366ca7290d70413f19a7457f86a3ac8"
+    },
+    "pyqt-testing": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/testing/SKILL.md",
+      "computedHash": "4ea8943fe7051bdbf2bfbccc51f071b53e8a264e9d9f5f08af47008ae2e676d5"
+    },
+    "pyqt-threading": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/threading/SKILL.md",
+      "computedHash": "ff93dd0eb5355ea08d1773f3bcb0e74496e46bf22bcd7803a1190ea5b01c02f0"
+    },
+    "pyqt-widgets": {
+      "source": "CodeAtCode/oss-ai-skills",
+      "sourceType": "github",
+      "skillPath": "frameworks/pyqt/widgets/SKILL.md",
+      "computedHash": "6a631c25e72cf583e50f904408e5d3c5b1100b964137ebbe75b939a3b1c5c7fe"
+    },
+    "qt-ui-design": {
+      "source": "TheQtCompanyRnD/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/qt-ui-design/SKILL.md",
+      "computedHash": "232774eb03632f484d6d6f0415bf019238a0d1dd5c5a6325c30306f4438a968f"
+    }
+  }
+}

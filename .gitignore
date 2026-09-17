@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+*.spec
+temp/
+.DS_Store
+Thumbs.db
+build/generated/
+third-party/ossutil.exe
+.claude/settings.local.json
+*.iss.bak
