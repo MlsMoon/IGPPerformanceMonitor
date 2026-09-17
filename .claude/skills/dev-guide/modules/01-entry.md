@@ -4,7 +4,7 @@
 
 - `src/main.py` — process entry; admin elevation; `--debug` / `--headless`; `run_headless_capture`
 - `src/core/capture_session.py` — `CaptureSession`; shared DataStore + wrapper + sampler lifetime
-- `src/ui/main_window.py` — menus, overlay, update check, GitHub link
+- `src/ui/main_window.py` — menus, overlay, update check, GitHub link, Help → User Manual
 - `src/config.py` — intervals, history window, PresentMon path
 
 ## Responsibilities

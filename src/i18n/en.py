@@ -189,6 +189,11 @@ TRANSLATIONS: dict[str, str] = {
     "menu_changelog": "Changelog",
     "changelog_empty": "No changelog entries yet.",
     "btn_close": "Close",
+    "menu_user_manual": "User Manual",
+    "user_manual_title": "User Manual",
+    "user_manual_page_guide": "User guide",
+    "user_manual_page_troubleshooting": "Troubleshooting",
+    "user_manual_empty": "The user manual is not available in this build.",
 
     # shortcuts / overlay / 0-frame warnings (Tier 0)
     "menu_shortcuts": "Keyboard Shortcuts...",

@@ -95,6 +95,7 @@ Do **not** publish updates through object storage. Do **not** put cloud keys in 
 - **Branches:** `develop` (default, PRs) and `release` (tags). Both are protected. There is no `main`.
 - **Tag:** annotated `vX.Y.Z` on `release` that **equals** `v` + `VERSION`. CI refuses a mismatch.
 - **Changelog:** `CHANGELOG.md` is bundled and shown in Help → Changelog.
+- **User manual:** `docs/<locale>/` is bundled and shown in Help → User Manual (`en` / `zh-CN` follow the UI locale).
 - **Build metadata:** `Scripts\build.bat` writes `build/generated/build_info.txt` as `yyyyMMdd-HHmmss-gitsha` (`APP_BUILD`, not the version).
 - **Publisher:** GitHub Actions `.github/workflows/release.yml` on tag `v*.*.*`.
 - **Client URL:** `DEFAULT_APP_MANIFEST_URL` in `src/core/app_info.py` (latest-release download). Compare versions with `parse_version()`, never string compare.
@@ -124,4 +125,4 @@ Do **not** publish updates through object storage. Do **not** put cloud keys in 
 
 ## PyInstaller
 
-`config.py` and `app_info.resource_root()` use `sys._MEIPASS` when frozen. Bundle PresentMon, `VERSION`, `CHANGELOG.md`, `build_info.txt`, and `assets/icon.png`. Hidden imports: psutil, pynvml, win32api, win32con, win32pdh. EXE icon: `assets/icon.ico`.
+`config.py` and `app_info.resource_root()` use `sys._MEIPASS` when frozen. Bundle PresentMon, `VERSION`, `CHANGELOG.md`, `docs/`, `build_info.txt`, and `assets/icon.png`. Hidden imports: psutil, pynvml, win32api, win32con, win32pdh. EXE icon: `assets/icon.ico`.

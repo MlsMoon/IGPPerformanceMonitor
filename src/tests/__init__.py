@@ -66,6 +66,7 @@ QT = [
     "test_ui_overlay",
     "test_ui_process_panel",
     "test_ui_csv_analysis",
+    "test_user_manual",
 ]
 
 

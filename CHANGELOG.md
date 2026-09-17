@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Help → User Manual opens the bundled guide (and troubleshooting) for the current UI language. The same `docs/` tree is packed into the portable EXE and the installer.
+
 ## 0.1.1
 
 Flat visual pass and an icon rebuild.

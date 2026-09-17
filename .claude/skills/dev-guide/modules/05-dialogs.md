@@ -7,11 +7,13 @@
 - `src/ui/dialogs/csv_analysis_dialog.py` — offline analysis view
 - `src/core/csv_importer.py` — `import_file`, encoding fallback
 - `src/ui/dialogs/changelog_dialog.py` — renders `CHANGELOG.md` (`## X.Y.Z` blocks)
+- `src/core/user_manual.py` — `docs/` paths, locale folder, safe markdown href resolve
+- `src/ui/dialogs/user_manual.py` — Help → User Manual (`user-guide` + troubleshooting)
 - `src/ui/dialogs/shortcuts_dialog.py` — shortcut table; keep in sync with `main_window._init_ui()`
 
 ## Responsibilities
 
-Export CSV (GUI + headless), import for offline analysis, show changelog.
+Export CSV (GUI + headless), import for offline analysis, show changelog and the bundled user manual.
 
 ## Pitfalls
 
@@ -24,6 +26,7 @@ Export CSV (GUI + headless), import for offline analysis, show changelog.
 - **Analysis dialog is modal** — no live theme toggle; each `exec_` builds with the current theme.
 - **Imported FPS:** keep the CSV `FPS` column when present; otherwise derive from frame time.
 - **Changelog path:** `resource_root()/CHANGELOG.md` (frozen = `_MEIPASS`).
+- **User manual path:** `resource_root()/docs/<locale>/`. UI `zh_CN` → `zh-CN`, everything else → `en`. `resolve_doc_href` must stay inside `docs/` (no `..` escape). Bundle the whole `docs/` tree (`--add-data docs;docs`); do not ship only one language.
 
 ## Checklist
 
@@ -32,6 +35,7 @@ Export CSV (GUI + headless), import for offline analysis, show changelog.
 - [ ] Analysis colors go through `src.ui.theme`
 - [ ] Import/export encodings stay consistent
 - [ ] Shortcut changes update `main_window` **and** `shortcuts_dialog._SHORTCUTS` plus `sc_*` keys
+- [ ] New manual page → `user_manual.PAGES` + files under every `docs/<locale>/` + both i18n keys
 
 ---
 last_updated: 2026-09-17

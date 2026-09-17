@@ -188,6 +188,11 @@ TRANSLATIONS: dict[str, str] = {
     "menu_changelog": "更新记录",
     "changelog_empty": "暂无更新记录。",
     "btn_close": "关闭",
+    "menu_user_manual": "用户手册",
+    "user_manual_title": "用户手册",
+    "user_manual_page_guide": "使用指南",
+    "user_manual_page_troubleshooting": "排障",
+    "user_manual_empty": "当前构建未包含用户手册。",
 
     # Shortcuts / overlay / 0-frame warning (Tier 0)
     "menu_shortcuts": "快捷键...",

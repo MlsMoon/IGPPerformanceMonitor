@@ -4,6 +4,7 @@
 
 - `VERSION` — semver single source
 - `CHANGELOG.md` — Help → Changelog
+- `docs/` — Help → User Manual (all locales)
 - `assets/icon.png` / `assets/icon.ico` / `assets/logo.png` — window, EXE, installer, README
 - `Scripts/make_icons.py` — cuts the tiles against transparency and rebuilds `icon.ico`
 - `Scripts/build.bat` — PyInstaller (main + updater)
@@ -19,7 +20,7 @@ Build the portable EXE, updater, Windows installer, and publish them on GitHub R
 ## Pitfalls
 
 - **`build.bat` reads `VERSION`**, writes `build/generated/build_info.txt` = timestamp-gitsha (`APP_BUILD`, **not** the version).
-- **Bundle:** PresentMon, `VERSION`, `CHANGELOG.md`, `build_info.txt`, `assets/icon.png` (+ ico). New resources need `--add-data`.
+- **Bundle:** PresentMon, `VERSION`, `CHANGELOG.md`, `docs/`, `build_info.txt`, `assets/icon.png` (+ ico). New resources need `--add-data`. The installer also copies `docs\` next to the EXE for browsing on disk; the onefile EXE still reads them from `_MEIPASS`.
 - **EXE icon** is `assets/icon.ico`. Window icon is `assets/icon.png`. Update **both** (and `logo.png` if the brand mark changes).
 - **Icon art must be transparent outside the tile.** The generated PNGs shipped as opaque white in the corners, which drew a white frame around the desktop/taskbar icon and around the README logo on GitHub's dark theme. After replacing any art, run `python Scripts/make_icons.py` — it re-cuts the rounded tile against alpha and regenerates `icon.ico` at all seven sizes (16→256; Windows rescales badly if a size is missing). It is idempotent, so re-running is safe. Verify with `Image.open(p).convert("RGBA").getpixel((1, 1))[3] == 0`.
 - **`--uac-admin`** + installer `PrivilegesRequired=admin`. PresentMon needs elevation.
@@ -37,7 +38,7 @@ Build the portable EXE, updater, Windows installer, and publish them on GitHub R
 
 ## Checklist
 
-- [ ] New resource files → `--add-data` + frozen `resource_root()` path
+- [ ] New resource files → `--add-data` + frozen `resource_root()` path (docs go in both the EXE and `installer.iss`)
 - [ ] Icon change → `Scripts/make_icons.py`, then check the corners are transparent on a dark background
 - [ ] Version → only `VERSION`
 - [ ] Release → VERSION + CHANGELOG + tests + annotated tag + Actions green

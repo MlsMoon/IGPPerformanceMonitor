@@ -25,6 +25,7 @@ from src.ui.dialogs.csv_export import CsvExportDialog
 from src.ui.dialogs.csv_analysis_dialog import CsvAnalysisDialog
 from src.core import app_config
 from src.ui.dialogs.changelog_dialog import ChangelogDialog
+from src.ui.dialogs.user_manual import UserManualDialog
 from src.ui.dialogs.shortcuts_dialog import ShortcutsDialog
 from src.ui.dialogs.update_progress import UpdateProgressDialog
 from src.ui import theme, win_chrome
@@ -205,6 +206,7 @@ class MainWindow(QMainWindow):
 
     def _build_help_menu(self, menu) -> None:
         self._add_action(menu, "menu_shortcuts", self._show_shortcuts, "F1")
+        self._add_action(menu, "menu_user_manual", self._show_user_manual)
         menu.addSeparator()
         self._add_action(menu, "menu_check_update", self._check_update)
         self._add_action(menu, "menu_version_history", self._show_version_history)
@@ -536,6 +538,10 @@ class MainWindow(QMainWindow):
     def _show_changelog(self):
         """Show the changelog dialog."""
         ChangelogDialog(self).exec_()
+
+    def _show_user_manual(self):
+        """Show the bundled user guide for the current UI locale."""
+        UserManualDialog(self).exec_()
 
     def _show_version_history(self):
         """Fetch the manifest and offer rollback to the previous release."""
