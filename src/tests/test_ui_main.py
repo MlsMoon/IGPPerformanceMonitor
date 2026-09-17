@@ -1,8 +1,10 @@
 """Test: ui_main — MainWindow, MonitorView construction + Crosshair callback."""
 
 from PyQt5.QtCore import QPointF
-from PyQt5.QtWidgets import QScrollArea
+from PyQt5.QtWidgets import QFrame, QScrollArea
 
+from src.ui import motion, win_chrome
+from src.ui.chart_base import SystemChip
 from src.ui.main_window import MainWindow
 from src.ui.views.monitor_view import MonitorView
 from src.core.data_store import DataStore
@@ -14,12 +16,41 @@ def run():
     ds.start_session()
 
     # Feed REAL captured frames.
-    for f in load_real_frames():
+    frames = load_real_frames()
+    for f in frames:
         ds.add_frame(f)
+    ds.set_monitored_apps(sorted({f.application for f in frames if f.application}))
 
     mw = MainWindow()
     assert mw is not None, "MainWindow"
     assert mw.minimumWidth() <= 1000, "1080p-friendly minimum width"
+
+    # A long GPU/display string in the system chip bar must not inflate the
+    # window's real minimum width — the chips elide instead (see SystemChip).
+    long_chip = SystemChip("GPU: " + "NVIDIA GeForce RTX 4060 Ti " * 6)
+    assert long_chip.minimumSizeHint().width() < 100, "system chip must stay shrinkable"
+    assert long_chip.toolTip().startswith("GPU:"), "full text kept on the tooltip"
+
+    # Native title-bar theming must be a safe no-op everywhere (offscreen, too).
+    win_chrome.apply_to_widget(mw)
+    win_chrome.refresh_all()
+    assert win_chrome._colorref("#123456") == 0x563412, "COLORREF is 0x00bbggrr"
+
+    # Motion is off under the offscreen platform, so transitions must land on
+    # their end value synchronously and never leave a widget faded out.
+    assert not motion.enabled(), "animations disabled offscreen"
+    motion.fade_in(mw)
+    assert mw.graphicsEffect() is None, "fade_in must not leave an opacity effect"
+    ticks: list[float] = []
+    transition = motion.Transition(mw, ticks.append)
+    transition.to(1.0)
+    assert ticks == [1.0] and transition.value == 1.0, "disabled transition jumps to target"
+
+    # Motion budget for a high-frequency tool: hover feedback inside the ~100ms
+    # reaction window, and exits shorter than the entrance they undo.
+    assert motion.FAST <= 100, "hover feedback must feel like a reaction"
+    assert motion.exit_duration(motion.NORMAL) < motion.NORMAL, "exits run shorter"
+    assert not hasattr(mw, "_did_fade_in"), "no startup entrance animation"
     assert mw._monitor_view.findChild(QScrollArea, "ChartsScrollArea") is not None, (
         "charts should live in a scroll area"
     )
@@ -60,9 +91,22 @@ def run():
     mv = MonitorView(ds)
     assert mv is not None, "MonitorView"
     assert mv.findChild(QScrollArea, "ChartsScrollArea") is not None, "MonitorView scroll area"
+    assert mv._content_splitter.count() == 2, "stats / charts divider is draggable"
+    mv.save_layout_state()
     assert mv.is_visibility_panel_expanded(), "MonitorView panel initially expanded"
     mv._refresh_charts()
     mv._refresh_stats()
+
+    # The stats readout is one rounded surface with hairline rows, not a stack
+    # of ten rounded tiles — the whole point of the flat pass.
+    stats_lists = mv.findChildren(QFrame, "StatsList")
+    assert len(stats_lists) == 1, "stats should live in a single container"
+    rows = stats_lists[0].findChildren(QFrame, "StatsRow")
+    last_rows = stats_lists[0].findChildren(QFrame, "StatsRowLast")
+    assert len(rows) >= 8 and len(last_rows) == 1, (
+        "every metric is a row; only the bottom one drops its separator"
+    )
+
     mv.resize(1366, 768)
     mv.refresh_display_layout()
     fps_card = mv._chart_widgets["fps"]
@@ -87,6 +131,9 @@ def run():
     empty_ds.set_system_info(load_real_system_info())
     empty_mv = MonitorView(empty_ds)
     empty_mv._refresh_charts()
+    assert empty_mv._monitored_label.isHidden(), (
+        "'Monitored: …' line should not take a row before a capture"
+    )
     expected_displays = " / ".join(load_real_system_info().display_outputs)
     assert expected_displays in empty_mv._sys_info_bar._igp_text, (
         "system info should refresh even without captured frames"

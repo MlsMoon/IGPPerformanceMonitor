@@ -3,14 +3,20 @@
 from PyQt5.QtCore import pyqtSignal, Qt, QTimer
 from PyQt5.QtWidgets import (
     QGroupBox, QHBoxLayout, QVBoxLayout, QPushButton,
-    QLineEdit, QListWidget, QLabel, QSpinBox, QWidget, QSizePolicy,
+    QLineEdit, QListWidget, QListWidgetItem, QLabel, QSpinBox,
 )
-from PyQt5.QtGui import QFont
 
 from src.i18n import tr
 from src.core.system_metrics import get_running_process_names
 from src.core import app_config
 from src.ui import theme
+
+
+def _process_item(name: str) -> QListWidgetItem:
+    """List entry whose tooltip carries the full name (the label may be elided)."""
+    item = QListWidgetItem(name)
+    item.setToolTip(name)
+    return item
 
 
 class ProcessPanel(QGroupBox):
@@ -53,10 +59,7 @@ class ProcessPanel(QGroupBox):
         self._avail_label = avail_label
         avail_layout.addWidget(avail_label)
 
-        self._available_list = QListWidget()
-        self._available_list.setObjectName("AvailableList")
-        self._available_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self._available_list.itemDoubleClicked.connect(self._add_selected)
+        self._available_list = self._make_list("AvailableList", self._add_selected)
         avail_layout.addWidget(self._available_list)
         panels_row.addLayout(avail_layout)
 
@@ -87,10 +90,7 @@ class ProcessPanel(QGroupBox):
         self._mon_label = mon_label
         monitored_layout.addWidget(mon_label)
 
-        self._monitored_list = QListWidget()
-        self._monitored_list.setObjectName("MonitoredList")
-        self._monitored_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self._monitored_list.itemDoubleClicked.connect(self._remove_selected)
+        self._monitored_list = self._make_list("MonitoredList", self._remove_selected)
         monitored_layout.addWidget(self._monitored_list)
         panels_row.addLayout(monitored_layout)
 
@@ -129,7 +129,7 @@ class ProcessPanel(QGroupBox):
         for name in app_config.get("monitored_processes") or []:
             if name not in self._process_names:
                 self._process_names.add(name)
-                self._monitored_list.addItem(name)
+                self._monitored_list.addItem(_process_item(name))
 
         # Initial population
         self._refresh_available()
@@ -138,6 +138,19 @@ class ProcessPanel(QGroupBox):
         self._apply_panel_styles()
         theme.theme_changed_signal().connect(self._on_theme_changed)
 
+    @staticmethod
+    def _make_list(object_name: str, on_double_click) -> QListWidget:
+        """A process list that elides long names instead of scrolling sideways."""
+        widget = QListWidget()
+        widget.setObjectName(object_name)
+        widget.setSelectionMode(QListWidget.ExtendedSelection)
+        widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        widget.setTextElideMode(Qt.ElideMiddle)
+        widget.setUniformItemSizes(True)
+        widget.setMinimumHeight(150)
+        widget.itemDoubleClicked.connect(on_double_click)
+        return widget
+
     # ------------------------------------------------------------------
     # Theming
     # ------------------------------------------------------------------
@@ -145,24 +158,14 @@ class ProcessPanel(QGroupBox):
     def _apply_panel_styles(self):
         """Re-colour labels/buttons/list-selection from the current theme."""
         t = theme.current_theme()
-        label_qss = f"font-weight: bold; color: {t.text_secondary};"
+        label_qss = (
+            f"font-weight: 600; font-size: 9pt; color: {t.text_muted};"
+            " padding: 2px 0;"
+        )
         self._avail_label.setStyleSheet(label_qss)
         self._mon_label.setStyleSheet(label_qss)
-        # Square arrow buttons: green/red, fixed size override of padding
-        self._add_btn.setStyleSheet(
-            f"QPushButton {{ font-size: 16px; background-color: {t.good}; color: #ffffff;"
-            f" border: none; border-radius: 4px; }}"
-            f"QPushButton:hover {{ background-color: {t.panel_bg}; color: {t.good};"
-            f" border: 1px solid {t.good}; }}"
-            f"QPushButton:disabled {{ background-color: {t.text_muted}; }}"
-        )
-        self._remove_btn.setStyleSheet(
-            f"QPushButton {{ font-size: 16px; background-color: {t.bad}; color: #ffffff;"
-            f" border: none; border-radius: 4px; }}"
-            f"QPushButton:hover {{ background-color: {t.panel_bg}; color: {t.bad};"
-            f" border: 1px solid {t.bad}; }}"
-            f"QPushButton:disabled {{ background-color: {t.text_muted}; }}"
-        )
+        self._add_btn.setStyleSheet(self._arrow_qss(t, t.good))
+        self._remove_btn.setStyleSheet(self._arrow_qss(t, t.bad))
         self._apply_capture_btn()
         # Inline item-selection on each list: `::item:selected` paints the
         # item background regardless of keyboard focus (unlike the global
@@ -175,6 +178,17 @@ class ProcessPanel(QGroupBox):
         )
         self._available_list.setStyleSheet(list_sel)
         self._monitored_list.setStyleSheet(list_sel)
+
+    @staticmethod
+    def _arrow_qss(t, color: str) -> str:
+        """Flat transfer button: an accent wash that fills in on hover."""
+        return (
+            f"QPushButton {{ font-size: 15px; background-color: {theme.tint(color, 38)};"
+            f" color: {color}; border: none; border-radius: {theme.RADIUS_CONTROL}px; }}"
+            f"QPushButton:hover {{ background-color: {color}; color: #ffffff; }}"
+            f"QPushButton:pressed {{ background-color: {theme.tint(color, 170)}; }}"
+            f"QPushButton:disabled {{ background-color: {t.panel_bg}; color: {t.text_muted}; }}"
+        )
 
     def _on_theme_changed(self):
         self._apply_panel_styles()
@@ -226,13 +240,12 @@ class ProcessPanel(QGroupBox):
 
     def _refresh_available(self):
         """Repopulate available process list from running processes."""
-        current_search = self._search_input.text()
         monitored = self._process_names
         processes = get_running_process_names()
         self._available_list.clear()
         for name in processes:
             if name not in monitored:
-                self._available_list.addItem(name)
+                self._available_list.addItem(_process_item(name))
         # Re-apply search filter immediately (no debounce after a refresh)
         self._apply_search()
 
@@ -246,7 +259,7 @@ class ProcessPanel(QGroupBox):
             name = item.text()
             if name not in self._process_names:
                 self._process_names.add(name)
-                self._monitored_list.addItem(name)
+                self._monitored_list.addItem(_process_item(name))
             self._available_list.takeItem(self._available_list.row(item))
         self._persist_processes()
 
@@ -259,7 +272,7 @@ class ProcessPanel(QGroupBox):
             self._monitored_list.takeItem(self._monitored_list.row(item))
             # Put back in available if matches search (or if no filter)
             if not search or search in name.lower():
-                self._available_list.addItem(name)
+                self._available_list.addItem(_process_item(name))
         self._persist_processes()
 
     # ------------------------------------------------------------------

@@ -26,7 +26,7 @@ from src.ui.dialogs.csv_analysis_dialog import CsvAnalysisDialog
 from src.core import app_config
 from src.ui.dialogs.changelog_dialog import ChangelogDialog
 from src.ui.dialogs.shortcuts_dialog import ShortcutsDialog
-from src.ui import theme
+from src.ui import theme, win_chrome
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,9 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._connect_signals()
         self._restore_window_state()
+        # Theme the native title bar before the first paint, so the window never
+        # flashes the default light chrome.
+        win_chrome.apply_to_widget(self)
         theme.theme_changed_signal().connect(self._on_theme_changed)
 
         # Packaged EXE: silently check for updates shortly after startup.
@@ -78,149 +81,136 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._connect_screen_change_hooks)
 
     def _init_ui(self):
+        # Order matters: the View menu reads chart state off the monitor view.
+        self.setCentralWidget(self._build_central())
+        self.setMenuBar(self._build_menu_bar())
+        self.setStatusBar(self._build_status_bar())
+
+    # ------------------------------------------------------------------
+    # Layout
+    # ------------------------------------------------------------------
+
+    def _build_central(self) -> QWidget:
         central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QHBoxLayout(central)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(10, 8, 10, 6)
+        root.setSpacing(0)
 
-        # Left panel
-        left_panel = QVBoxLayout()
-        self._process_panel = ProcessPanel()
-        left_panel.addWidget(self._process_panel)
-
-        self._status_label = QLabel(tr("status_ready_hint"))
-        self._status_label.setStyleSheet(self._status_label_qss())
-        left_panel.addWidget(self._status_label)
-        left_panel.addStretch()
-
-        left_widget = QWidget()
-        left_widget.setLayout(left_panel)
-        left_widget.setMinimumWidth(320)
-
-        # Right panel
         self._monitor_view = MonitorView(self._data_store)
 
         self._splitter = QSplitter(Qt.Horizontal)
-        self._splitter.addWidget(left_widget)
+        self._splitter.setChildrenCollapsible(False)
+        self._splitter.addWidget(self._build_side_panel())
         self._splitter.addWidget(self._monitor_view)
-        # Proportional: left ~30%, right ~70%
-        self._splitter.setStretchFactor(0, 3)
-        self._splitter.setStretchFactor(1, 7)
+        # The side panel keeps its width; the charts absorb any extra space.
+        self._splitter.setStretchFactor(0, 0)
+        self._splitter.setStretchFactor(1, 1)
         self._splitter.setSizes([340, 960])  # sensible initial sizes for 1080p
-        main_layout.addWidget(self._splitter)
+        root.addWidget(self._splitter)
+        return central
 
-        # Menu bar
-        menu_bar = QMenuBar()
-        self.setMenuBar(menu_bar)
+    def _build_side_panel(self) -> QWidget:
+        """Process picker + status hint, stretched to the full window height."""
+        side = QWidget()
+        layout = QVBoxLayout(side)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(6)
 
-        # ---- File menu ----
-        file_menu = menu_bar.addMenu(tr("menu_file"))
+        self._process_panel = ProcessPanel()
+        layout.addWidget(self._process_panel, 1)
 
-        capture_action = QAction(tr("menu_capture_toggle"), self)
-        capture_action.setShortcut(QKeySequence("F5"))
-        capture_action.triggered.connect(self._toggle_capture)
-        file_menu.addAction(capture_action)
+        self._status_label = QLabel(tr("status_ready_hint"))
+        self._status_label.setWordWrap(True)
+        self._status_label.setStyleSheet(self._status_label_qss())
+        layout.addWidget(self._status_label)
 
-        file_menu.addSeparator()
+        side.setMinimumWidth(300)
+        return side
 
-        import_action = QAction(tr("menu_import_csv"), self)
-        import_action.setShortcut(QKeySequence("Ctrl+I"))
-        import_action.triggered.connect(self._import_csv)
-        file_menu.addAction(import_action)
-
-        file_menu.addSeparator()
-
-        export_action = QAction(tr("export_csv_action"), self)
-        export_action.setShortcut(QKeySequence("Ctrl+E"))
-        export_action.triggered.connect(self._export_csv)
-        file_menu.addAction(export_action)
-
-        # ---- View menu ----
-        view_menu = menu_bar.addMenu(tr("menu_view"))
-
-        # Chart visibility toggles (submenu) — single source: CHART_REGISTRY.
-        charts_submenu = view_menu.addMenu(tr("menu_charts"))
-        self._chart_visibility_actions: dict[str, QAction] = {}
-        for spec in CHART_REGISTRY:
-            act = QAction(tr(spec.label_key), self)
-            act.setCheckable(True)
-            act.setChecked(self._monitor_view.is_chart_visible(spec.name))
-            act.toggled.connect(
-                lambda checked, k=spec.name: self._monitor_view.set_chart_visible(k, checked))
-            charts_submenu.addAction(act)
-            self._chart_visibility_actions[spec.name] = act
-
-        # Inline show/hide part on the performance page.
-        self._charts_panel_action = QAction(tr("menu_charts_panel"), self)
-        self._charts_panel_action.setCheckable(True)
-        self._charts_panel_action.setShortcut(QKeySequence("Ctrl+J"))
-        self._charts_panel_action.setChecked(self._monitor_view.is_visibility_panel_expanded())
-        self._charts_panel_action.toggled.connect(self._on_charts_panel_toggled)
-        view_menu.addAction(self._charts_panel_action)
-
-        view_menu.addSeparator()
-
-        self._dark_action = QAction(tr("menu_dark_mode"), self)
-        self._dark_action.setCheckable(True)
-        self._dark_action.setShortcut(QKeySequence("Ctrl+D"))
-        self._dark_action.setChecked(theme.current_theme().is_dark)
-        self._dark_action.toggled.connect(self._on_dark_mode_toggled)
-        view_menu.addAction(self._dark_action)
-
-        self._ontop_action = QAction(tr("always_on_top"), self)
-        self._ontop_action.setCheckable(True)
-        self._ontop_action.setShortcut(QKeySequence("Ctrl+T"))
-        self._ontop_action.toggled.connect(self._toggle_always_on_top)
-        view_menu.addAction(self._ontop_action)
-
-        overlay_toggle_action = QAction(tr("menu_overlay_toggle"), self)
-        overlay_toggle_action.setShortcut(QKeySequence("F9"))
-        overlay_toggle_action.triggered.connect(self._toggle_overlays_visible)
-        view_menu.addAction(overlay_toggle_action)
-
-        self._click_through_action = QAction(tr("menu_click_through"), self)
-        self._click_through_action.setCheckable(True)
-        self._click_through_action.setChecked(self._click_through)
-        self._click_through_action.toggled.connect(self._toggle_click_through)
-        view_menu.addAction(self._click_through_action)
-
-        # ---- Help menu ----
-        help_menu = menu_bar.addMenu(tr("menu_help"))
-
-        shortcuts_action = QAction(tr("menu_shortcuts"), self)
-        shortcuts_action.setShortcut(QKeySequence("F1"))
-        shortcuts_action.triggered.connect(self._show_shortcuts)
-        help_menu.addAction(shortcuts_action)
-
-        help_menu.addSeparator()
-
-        check_update_action = QAction(tr("menu_check_update"), self)
-        check_update_action.triggered.connect(self._check_update)
-        help_menu.addAction(check_update_action)
-
-        version_history_action = QAction(tr("menu_version_history"), self)
-        version_history_action.triggered.connect(self._show_version_history)
-        help_menu.addAction(version_history_action)
-
-        changelog_action = QAction(tr("menu_changelog"), self)
-        changelog_action.triggered.connect(self._show_changelog)
-        help_menu.addAction(changelog_action)
-
-        github_action = QAction(tr("menu_github"), self)
-        github_action.triggered.connect(self._open_github)
-        help_menu.addAction(github_action)
-
-        help_menu.addSeparator()
-
-        about_action = QAction(tr("menu_about"), self)
-        about_action.triggered.connect(self._show_about)
-        help_menu.addAction(about_action)
-
-        # Status bar
-        self._status_bar = QStatusBar()
-        self.setStatusBar(self._status_bar)
-        self._status_bar.showMessage(tr("status_ready"))
+    def _build_status_bar(self) -> QStatusBar:
         # Window chrome is themed via the global QApplication stylesheet
         # (theme.apply_app_qss); no widget-level stylesheet here.
+        self._status_bar = QStatusBar()
+        self._status_bar.setSizeGripEnabled(True)
+        self._status_bar.showMessage(tr("status_ready"))
+        return self._status_bar
+
+    # ------------------------------------------------------------------
+    # Menus
+    # ------------------------------------------------------------------
+
+    def _build_menu_bar(self) -> QMenuBar:
+        menu_bar = QMenuBar()
+        self._build_file_menu(menu_bar.addMenu(tr("menu_file")))
+        self._build_view_menu(menu_bar.addMenu(tr("menu_view")))
+        self._build_help_menu(menu_bar.addMenu(tr("menu_help")))
+        return menu_bar
+
+    def _add_action(self, menu, label_key: str, slot, shortcut: str = "") -> QAction:
+        action = QAction(tr(label_key), self)
+        if shortcut:
+            action.setShortcut(QKeySequence(shortcut))
+        action.triggered.connect(slot)
+        menu.addAction(action)
+        return action
+
+    def _add_toggle(self, menu, label_key: str, slot, *,
+                    checked: bool = False, shortcut: str = "") -> QAction:
+        """Checkable menu entry. Checked *before* connecting, so no spurious emit."""
+        action = QAction(tr(label_key), self)
+        action.setCheckable(True)
+        action.setChecked(checked)
+        if shortcut:
+            action.setShortcut(QKeySequence(shortcut))
+        action.toggled.connect(slot)
+        menu.addAction(action)
+        return action
+
+    def _build_file_menu(self, menu) -> None:
+        self._add_action(menu, "menu_capture_toggle", self._toggle_capture, "F5")
+        menu.addSeparator()
+        self._add_action(menu, "menu_import_csv", self._import_csv, "Ctrl+I")
+        menu.addSeparator()
+        self._add_action(menu, "export_csv_action", self._export_csv, "Ctrl+E")
+
+    def _build_view_menu(self, menu) -> None:
+        # Chart visibility toggles (submenu) — single source: CHART_REGISTRY.
+        charts_submenu = menu.addMenu(tr("menu_charts"))
+        self._chart_visibility_actions: dict[str, QAction] = {
+            spec.name: self._add_toggle(
+                charts_submenu, spec.label_key,
+                lambda checked, k=spec.name: self._monitor_view.set_chart_visible(k, checked),
+                checked=self._monitor_view.is_chart_visible(spec.name),
+            )
+            for spec in CHART_REGISTRY
+        }
+
+        # Inline show/hide part on the performance page.
+        self._charts_panel_action = self._add_toggle(
+            menu, "menu_charts_panel", self._on_charts_panel_toggled,
+            checked=self._monitor_view.is_visibility_panel_expanded(), shortcut="Ctrl+J")
+
+        menu.addSeparator()
+
+        self._dark_action = self._add_toggle(
+            menu, "menu_dark_mode", self._on_dark_mode_toggled,
+            checked=theme.current_theme().is_dark, shortcut="Ctrl+D")
+        self._ontop_action = self._add_toggle(
+            menu, "always_on_top", self._toggle_always_on_top, shortcut="Ctrl+T")
+        self._add_action(menu, "menu_overlay_toggle", self._toggle_overlays_visible, "F9")
+        self._click_through_action = self._add_toggle(
+            menu, "menu_click_through", self._toggle_click_through,
+            checked=self._click_through)
+
+    def _build_help_menu(self, menu) -> None:
+        self._add_action(menu, "menu_shortcuts", self._show_shortcuts, "F1")
+        menu.addSeparator()
+        self._add_action(menu, "menu_check_update", self._check_update)
+        self._add_action(menu, "menu_version_history", self._show_version_history)
+        self._add_action(menu, "menu_changelog", self._show_changelog)
+        self._add_action(menu, "menu_github", self._open_github)
+        menu.addSeparator()
+        self._add_action(menu, "menu_about", self._show_about)
 
     def _connect_signals(self):
         self._process_panel.start_requested.connect(self._start_capture)
@@ -588,10 +578,20 @@ class MainWindow(QMainWindow):
                 self, tr("rollback_title"), tr("update_install_failed", str(e)))
             self._status_bar.showMessage(tr("status_ready"))
 
+    def showEvent(self, event):
+        # Toggling always-on-top recreates the native window, which drops the
+        # DWM attributes — re-apply them every time the window is shown.
+        #
+        # Deliberately no startup fade: this is a tool people open, read and
+        # close, so an entrance animation is pure latency.
+        super().showEvent(event)
+        win_chrome.apply_to_widget(self)
+
     def closeEvent(self, event):
         app_config.set("window_geometry", self.saveGeometry().toBase64().data().decode())
         if getattr(self, "_splitter", None) is not None:
             app_config.set("splitter_state", self._splitter.saveState().toBase64().data().decode())
+        self._monitor_view.save_layout_state()
         app_config.set("always_on_top", self._ontop_action.isChecked())
         self._session.stop(wait_ms=3000)
         for ov in list(self._overlays.values()):

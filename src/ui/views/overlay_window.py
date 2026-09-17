@@ -13,6 +13,7 @@ from src.models import FrameData
 from src.core.csv_importer import compute_gpu_estimate
 from src.i18n import tr
 from src.ui import theme
+from src.ui.theme import RADIUS_CARD
 
 
 # Offset of the overlay from the tracked window's top-left corner (px)
@@ -104,11 +105,17 @@ class OverlayWindow(QWidget):
         self.setMinimumWidth(240)
 
     def _apply_style(self):
+        """Flat translucent slab.
+
+        The selectors matter: an unscoped stylesheet is inherited by every child,
+        which used to draw a border around each individual label.
+        """
         t = theme.current_theme()
         bg = QColor(t.panel_bg)
         self.setStyleSheet(
-            f"background-color: rgba({bg.red()}, {bg.green()}, {bg.blue()}, 220);"
-            f" color: {t.text_primary}; border: 1px solid {t.border}; border-radius: 6px;"
+            f"OverlayWindow {{ background-color: rgba({bg.red()}, {bg.green()},"
+            f" {bg.blue()}, 225); border: none; border-radius: {RADIUS_CARD}px; }}"
+            f"QLabel {{ background: transparent; border: none; color: {t.text_primary}; }}"
         )
 
     def set_click_through(self, enabled: bool):

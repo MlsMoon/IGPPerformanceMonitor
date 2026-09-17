@@ -35,10 +35,10 @@ class _LibPngSilencer:
 sys.stderr = _LibPngSilencer()
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtCore import Qt
 
 from src.i18n import tr
 from src.models import SessionConfig
+from src.ui import win_chrome
 from src.ui.dpi import configure_high_dpi
 from src.ui.main_window import MainWindow
 
@@ -242,6 +242,7 @@ def main():
     app.setApplicationName(tr("window_title"))
     app.setOrganizationName("IGP")
     app.setStyle("Fusion")
+    win_chrome.install(app)
 
     window = MainWindow()
     window.show()

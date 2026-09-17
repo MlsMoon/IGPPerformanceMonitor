@@ -13,20 +13,20 @@ import psutil
 from dataclasses import dataclass
 
 import pyqtgraph as pg
-from PyQt5.QtCore import Qt, QEvent, pyqtSignal
+from PyQt5.QtCore import Qt, QEvent, QRectF, QSize, pyqtSignal
 from PyQt5.QtWidgets import (
     QGridLayout, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QMenu,
     QFrame,
 )
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter
 
 from src.i18n import tr
 from src.models import ProcessStats
 from src.core.filters import median_adaptive_filter
-from src.ui import theme
+from src.ui import motion, theme
 from src.ui.theme import (
-    current_theme, apply_to_plot, fill_brush, metric_accent,
-    card_qss, value_badge_qss, icon_button_qss, stats_tile_qss, system_bar_qss,
+    RADIUS_CARD, current_theme, apply_to_plot, fill_brush, metric_accent,
+    value_badge_qss, icon_button_qss, system_bar_qss,
 )
 
 # ---------------------------------------------------------------------------
@@ -159,6 +159,83 @@ def _prepare_series(
 
 
 # ---------------------------------------------------------------------------
+# System info chip bar (shared by the live view and the analysis dialog)
+# ---------------------------------------------------------------------------
+
+class SystemChip(QLabel):
+    """One system-info chip, elided to fit.
+
+    A plain QLabel reports its full text width as its *minimum*, so a long GPU
+    name used to push the whole window's minimum width past 1100 px. This keeps
+    the natural width as the size hint but lets the chip shrink and elide, with
+    the full value on the tooltip.
+    """
+
+    _MIN_WIDTH = 56
+
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent)
+        self.setObjectName("SysChip")
+        self._full_text = text
+        self.setToolTip(text)
+        self._apply_elide()
+
+    def _apply_elide(self) -> None:
+        metrics = QFontMetrics(self.font())
+        width = max(self._MIN_WIDTH, self.width())
+        super().setText(metrics.elidedText(self._full_text, Qt.ElideRight, width))
+
+    def sizeHint(self) -> QSize:
+        metrics = QFontMetrics(self.font())
+        return QSize(metrics.horizontalAdvance(self._full_text) + 4, metrics.height())
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(self._MIN_WIDTH, QFontMetrics(self.font()).height())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._apply_elide()
+
+
+def build_system_chip_bar(text: str, t=None) -> QFrame:
+    """Slim themed chip bar built from a ' | '-separated system-info string."""
+    t = t or current_theme()
+    bar = QFrame()
+    bar.setObjectName("SystemBar")
+    bar.setStyleSheet(system_bar_qss(t))
+    bar.setAttribute(Qt.WA_StyledBackground, True)
+    bar._igp_text = None
+    lay = QHBoxLayout(bar)
+    lay.setContentsMargins(14, 6, 14, 6)
+    lay.setSpacing(18)
+    populate_system_chip_bar(bar, text, t)
+    return bar
+
+
+def populate_system_chip_bar(bar: QFrame, text: str, t=None) -> None:
+    """(Re)build the chip bar contents; no-op if the text is unchanged."""
+    if getattr(bar, "_igp_text", None) == text:
+        return
+    bar._igp_text = text
+    lay = bar.layout()
+    while lay.count():
+        item = lay.takeAt(0)
+        if item.widget():
+            item.widget().deleteLater()
+    t = t or current_theme()
+    for seg in text.split(" | "):
+        seg = seg.strip()
+        if not seg:
+            continue
+        chip = SystemChip(seg)
+        is_gpu = seg.lower().startswith("gpu")
+        color = t.accent[3] if is_gpu else t.text_secondary
+        chip.setStyleSheet(f"color: {color}; font-size: 9pt;")
+        lay.addWidget(chip)
+    lay.addStretch()
+
+
+# ---------------------------------------------------------------------------
 # ChartCard — titled PlotWidget container with badge / crosshair / maximize
 # ---------------------------------------------------------------------------
 
@@ -168,6 +245,10 @@ class ChartCard(QWidget):
     ``accent_key`` selects the header dot + badge colour (a palette index or a
     semantic name — see theme.metric_accent). ``fill`` enables a translucent
     area fill under the primary (first) curve.
+
+    The surface is painted here rather than styled with QSS, because QSS has no
+    transitions: hovering shifts the fill over ~90ms instead of snapping, and one
+    repaint is far cheaper than re-parsing a stylesheet per frame.
     """
 
     maximize_requested = pyqtSignal(str)
@@ -182,9 +263,12 @@ class ChartCard(QWidget):
         self._maximized = False
         self._is_top_chart = (name == "fps")
         t = current_theme()
+        self._theme = t
+        self._hover = 0.0
+        self._hover_anim = motion.Transition(self, self._on_hover_tick)
         self.setObjectName("ChartCard")
-        self.setStyleSheet(card_qss(t))
-        theme.apply_shadow(self, t)
+        # Nothing styles this widget through QSS — paintEvent owns the surface.
+        self.setAttribute(Qt.WA_StyledBackground, False)
         self.setMinimumHeight(220 if name == "fps" else 180)
 
         layout = QVBoxLayout(self)
@@ -230,6 +314,33 @@ class ChartCard(QWidget):
         self._crosshair = theme.Crosshair(self._plot, t)
         self.refresh_axis_layout()
 
+    # -- flat surface + hover motion --
+
+    def paintEvent(self, event):
+        """A single filled shape. Hover shifts its colour, nothing else moves.
+
+        No underline, glow or lift: anything that grows or slides on hover reads
+        as decoration here, and these cards are hovered constantly.
+        """
+        t = self._theme
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(theme.lerp_color(t.card_bg, t.hover_bg, self._hover))
+        painter.drawRoundedRect(QRectF(self.rect()), RADIUS_CARD, RADIUS_CARD)
+
+    def _on_hover_tick(self, value: float) -> None:
+        self._hover = value
+        self.update()
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self._hover_anim.to(1.0)
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self._hover_anim.to(0.0)
+
     def _make_icon_button(self, icon: str, tooltip: str, slot) -> QPushButton:
         btn = QPushButton(icon)
         btn.setFont(QFont("Segoe UI Symbol", 11))
@@ -268,7 +379,7 @@ class ChartCard(QWidget):
         """Re-skin this card after a theme switch (re-callable)."""
         t = t or current_theme()
         accent = metric_accent(self._accent_key, t)
-        self.setStyleSheet(card_qss(t))
+        self._theme = t
         self._dot.setStyleSheet(f"background: {accent}; border-radius: 5px; border: none;")
         self._title_label.setStyleSheet(
             f"font-weight: 600; color: {t.text_primary}; padding: 0 2px;"
@@ -280,7 +391,7 @@ class ChartCard(QWidget):
         self.refresh_axis_layout()
         self._crosshair.restyle(t)
         self._restyle_legend(t)
-        theme.apply_shadow(self, t)
+        self.update()
 
     def _restyle_legend(self, t) -> None:
         leg = getattr(self._plot, "legend", None)
@@ -419,65 +530,16 @@ class ChartViewMixin:
 
     def _build_system_info_label(self) -> QFrame:
         """Slim chip-bar built from the system info text (split on ' | ')."""
-        t = current_theme()
-        bar = QFrame()
-        bar.setObjectName("SystemBar")
-        bar.setStyleSheet(system_bar_qss(t))
-        theme.apply_shadow(bar, t)
-        bar._igp_text = None
-        lay = QHBoxLayout(bar)
-        lay.setContentsMargins(14, 6, 14, 6)
-        lay.setSpacing(18)
-        self._populate_system_bar(bar, self._get_system_info_text())
-        return bar
+        return build_system_chip_bar(self._get_system_info_text(), current_theme())
 
     def _populate_system_bar(self, bar: QFrame, text: str) -> None:
-        """(Re)build the chip bar contents; no-op if text is unchanged."""
-        if getattr(bar, "_igp_text", None) == text:
-            return
-        bar._igp_text = text
-        lay = bar.layout()
-        while lay.count():
-            it = lay.takeAt(0)
-            if it.widget():
-                it.widget().deleteLater()
-        t = current_theme()
-        for seg in text.split(" | "):
-            seg = seg.strip()
-            if not seg:
-                continue
-            chip = QLabel(seg)
-            chip.setObjectName("SysChip")
-            is_gpu = seg.lower().startswith("gpu")
-            color = t.accent[3] if is_gpu else t.text_secondary
-            chip.setStyleSheet(f"color: {color}; font-size: 9pt;")
-            lay.addWidget(chip)
-        lay.addStretch()
+        populate_system_chip_bar(bar, text)
 
     def _refresh_system_info(self) -> None:
         """Re-populate the system bar (lazy fill / theme switch)."""
         bar = getattr(self, "_sys_info_bar", None)
         if bar is not None:
             self._populate_system_bar(bar, self._get_system_info_text())
-
-    def _build_monitored_label(self) -> QLabel | None:
-        text = self._get_monitored_label_text()
-        if not text:
-            return None
-        t = current_theme()
-        label = QLabel(text)
-        label.setStyleSheet(
-            theme.monitored_label_qss(t)
-        )
-        return label
-
-    def _apply_groupbox_style(self, widget):
-        """No-op: QGroupBox styling comes from the global QSS in theme.app_qss.
-
-        Kept for backward-compat with existing call sites; intentionally empty so
-        it cannot override the app-level stylesheet with the old light theme.
-        """
-        return
 
     def _build_chart_grid(self, charts_layout: QGridLayout) -> dict[str, pg.PlotWidget]:
         """Build every chart in :data:`CHART_REGISTRY` and place the visible ones.
@@ -535,14 +597,17 @@ class ChartViewMixin:
             return f"{int(round(v))}{suffix}"
         return f"{v:.{precision}f}{suffix}"
 
-    def _stats_tile(self, label_key: str, pairs: list[tuple[str, ProcessStats | None]],
-                    field_fn, suffix: str, precision: int, t) -> QFrame:
-        """One metric tile. *pairs* is [(app, stats|None)]; idle apps render '—'."""
-        tile = QFrame()
-        tile.setObjectName("StatsTile")
-        tile.setStyleSheet(stats_tile_qss(t))
-        theme.apply_shadow(tile, t)
-        lay = QHBoxLayout(tile)
+    def _stats_row(self, label_key: str, pairs: list[tuple[str, ProcessStats | None]],
+                   field_fn, suffix: str, precision: int, t,
+                   last: bool = False) -> QFrame:
+        """One metric row. *pairs* is [(app, stats|None)]; idle apps render '—'.
+
+        The last row drops its hairline so the separator never sits on the
+        container's rounded bottom edge.
+        """
+        row = QFrame()
+        row.setObjectName("StatsRowLast" if last else "StatsRow")
+        lay = QHBoxLayout(row)
         lay.setContentsMargins(12, 6, 12, 6)
         lay.setSpacing(8)
 
@@ -573,7 +638,7 @@ class ChartViewMixin:
         value.setStyleSheet(f"color: {color};")
         value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         lay.addWidget(value)
-        return tile
+        return row
 
     def _build_stats_grid(self, grid: QGridLayout):
         """Populate *grid* with themed value tiles. Clears existing widgets first.
@@ -642,10 +707,19 @@ class ChartViewMixin:
             ("stat_avg_vram", lambda s: s.avg_app_vram_mb, 1, " MB"),
         ]
 
-        for label_key, field_fn, precision, suffix in metric_defs:
-            tile = self._stats_tile(label_key, pairs, field_fn, suffix, precision, t)
-            grid.addWidget(tile, row, 0)
-            row += 1
+        table = QFrame()
+        table.setObjectName("StatsList")
+        table.setStyleSheet(theme.stats_list_qss(t))
+        rows = QVBoxLayout(table)
+        rows.setContentsMargins(0, 2, 0, 2)
+        rows.setSpacing(0)
+        for i, (label_key, field_fn, precision, suffix) in enumerate(metric_defs):
+            rows.addWidget(self._stats_row(
+                label_key, pairs, field_fn, suffix, precision, t,
+                last=(i == len(metric_defs) - 1),
+            ))
+        grid.addWidget(table, row, 0)
+        row += 1
         grid.setRowStretch(row, 1)
 
     # -------- Curve update helpers --------
@@ -890,6 +964,5 @@ class ChartViewMixin:
         bar = getattr(self, "_sys_info_bar", None)
         if bar is not None:
             bar.setStyleSheet(system_bar_qss(t))
-            theme.apply_shadow(bar, t)
             bar._igp_text = None  # force re-populate with themed chip colours
             self._populate_system_bar(bar, self._get_system_info_text())

@@ -16,13 +16,14 @@ from PyQt5.QtWidgets import (
 from src.i18n import tr
 from src.models import FrameData, format_display_outputs
 from src.core.csv_importer import ImportResult, group_frames_by_app, compute_gpu_estimate
-from src.core.filters import iqr_filter_series
 from src.core.stutter_analysis import (
     FIXED_33_MS, FIXED_50_MS, analyze_stutter, elapsed_frame_series,
 )
 from src.ui import theme
-from src.ui.theme import apply_to_plot, card_qss, system_bar_qss
-from src.ui.chart_base import ChartCard, _pen, _prepare_series, next_palette_color
+from src.ui.theme import RADIUS_CARD, apply_to_plot
+from src.ui.chart_base import (
+    ChartCard, _pen, _prepare_series, build_system_chip_bar, next_palette_color,
+)
 
 Extractor = Callable[[FrameData], float | None]
 
@@ -108,7 +109,7 @@ class CsvAnalysisDialog(QDialog):
         layout.addWidget(tabs, 1)
 
     def _build_system_info_label(self) -> QFrame:
-        """Slim themed chip bar (mirrors the live view)."""
+        """Slim themed chip bar (same widget as the live view)."""
         info = self._result.system_info
         if info:
             text = (
@@ -119,25 +120,7 @@ class CsvAnalysisDialog(QDialog):
             )
         else:
             text = tr("no_data_placeholder")
-        t = theme.current_theme()
-        bar = QFrame()
-        bar.setObjectName("SystemBar")
-        bar.setStyleSheet(system_bar_qss(t))
-        lay = QHBoxLayout(bar)
-        lay.setContentsMargins(12, 5, 12, 5)
-        lay.setSpacing(18)
-        for seg in text.split(" | "):
-            seg = seg.strip()
-            if not seg:
-                continue
-            chip = QLabel(seg)
-            chip.setObjectName("SysChip")
-            is_gpu = seg.lower().startswith("gpu")
-            color = t.accent[3] if is_gpu else t.text_secondary
-            chip.setStyleSheet(f"color: {color}; font-size: 9pt;")
-            lay.addWidget(chip)
-        lay.addStretch()
-        return bar
+        return build_system_chip_bar(text)
 
     def _summary_card(self, title: str, value: str, subtitle: str = "") -> QLabel:
         t = theme.current_theme()
@@ -152,8 +135,8 @@ class CsvAnalysisDialog(QDialog):
         )
         label.setMinimumWidth(150)
         label.setStyleSheet(
-            f"QLabel {{ background:{t.card_bg}; border:1px solid {t.border};"
-            f" border-radius:8px; padding:8px 12px; }}"
+            f"QLabel {{ background:{t.card_bg}; border:none;"
+            f" border-radius:{RADIUS_CARD}px; padding:8px 12px; }}"
         )
         return label
 

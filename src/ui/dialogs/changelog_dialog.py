@@ -39,7 +39,8 @@ class ChangelogDialog(QDialog):
             self._version_list = QListWidget(self)
             self._version_list.setObjectName("VersionList")
             self._version_list.setSelectionMode(QListWidget.SingleSelection)
-            self._version_list.setFixedWidth(120)
+            self._version_list.setMinimumWidth(110)
+            self._version_list.setMaximumWidth(240)
             for ver, _content in self._versions:
                 item = QListWidgetItem(f"v{ver}")
                 item.setData(Qt.UserRole, ver)
@@ -63,8 +64,9 @@ class ChangelogDialog(QDialog):
             right_layout.addLayout(btn_row)
 
             splitter.addWidget(right)
-            splitter.setStretchFactor(0, 0)   # left fixed-width
+            splitter.setStretchFactor(0, 0)   # left keeps its width
             splitter.setStretchFactor(1, 1)   # right stretches
+            splitter.setSizes([130, 650])
 
             # Wire selection → content
             self._version_list.currentItemChanged.connect(self._on_version_selected)

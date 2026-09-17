@@ -114,6 +114,8 @@ Do **not** publish updates through object storage. Do **not** put cloud keys in 
 - **NVML total vs process GPU are different APIs.** Per-process can briefly exceed total; that is expected.
 - **Unlocked-FPS instant FPS is noisy.** Charts use EMA; CSV keeps raw values.
 - **Missing values are `None`** (including GPU; no `-1` sentinel). Consumers use `is not None`.
+- **QSS cannot theme the title bar.** It is DWM's non-client area, so a dark app shows a white strip on top until `src/ui/win_chrome.py` sets the immersive-dark-mode attribute. `setWindowFlags` recreates the HWND and drops it — re-apply in `showEvent`.
+- **The UI is flat on purpose, and "flat" is a budget, not a mood.** No shadows or surface outlines; corner radii only from `theme.RADIUS_*` (6/6/4/3, capped at 6 by `test_theme`); prefer one rounded container with hairline rows over a stack of rounded tiles. Motion is micro-interactions only — no entrance animations anywhere, hover ≤ 90ms, exits at 75% of the entrance, and never animate a layout property (animate colour or opacity and let the layout snap). All of it goes through `src/ui/motion.py`.
 - **`temp/` holds debug artifacts.** Already gitignored.
 - **CSV export** uses the system default encoding; import has a multi-codec fallback.
 - **GitHub downloads need a User-Agent.** Use `release_manifest.open_url`.

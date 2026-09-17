@@ -1,14 +1,15 @@
 """Real-time monitoring view — system info bar, chart grid, multi-app stats."""
 
 import pyqtgraph as pg
-from PyQt5.QtCore import Qt, QEvent, QTimer, pyqtSignal
+from PyQt5.QtCore import Qt, QByteArray, QEvent, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
-    QGroupBox, QVBoxLayout, QHBoxLayout, QLabel, QGridLayout, QWidget,
-    QScrollArea,
+    QGroupBox, QVBoxLayout, QLabel, QGridLayout, QWidget,
+    QScrollArea, QSplitter,
 )
 
 from src.i18n import tr
+from src.core import app_config
 from src.core.data_store import DataStore
 from src.models import ProcessStats, format_display_outputs
 from src.config import DEFAULT_REFRESH_INTERVAL_MS, DEFAULT_CHART_HISTORY_SECONDS
@@ -178,7 +179,9 @@ class MonitorView(QWidget, ChartViewMixin):
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(4)
+        # The main window already supplies the outer margin.
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
 
         # System info chip bar
         self._sys_info_bar = self._build_system_info_label()
@@ -189,33 +192,39 @@ class MonitorView(QWidget, ChartViewMixin):
         self._vis_panel.expanded_changed.connect(self._on_visibility_panel_expanded)
         layout.addWidget(self._vis_panel)
 
-        # Monitored apps (always create — text fills in during capture)
+        # Monitored apps — created empty and hidden; it only takes a row once a
+        # capture gives it text (see _sync_monitored_label).
         t = theme.current_theme()
         self._monitored_label = QLabel("")
         self._monitored_label.setStyleSheet(theme.monitored_label_qss(t))
+        self._monitored_label.hide()
         layout.addWidget(self._monitored_label)
 
-        # Stats + Charts side by side: stats left (~300px), charts right (stretch)
-        bottom_row = self._build_content_row()
-        layout.addLayout(bottom_row)
+        # Stats + Charts side by side, with a draggable divider.
+        layout.addWidget(self._build_content_row(), 1)
 
-    def _build_content_row(self):
-        bottom_row = QHBoxLayout()
-        bottom_row.setSpacing(6)
+    def _sync_monitored_label(self):
+        """Show the 'Monitored: …' line only while it has something to say."""
+        text = self._get_monitored_label_text()
+        self._monitored_label.setText(text)
+        self._monitored_label.setVisible(bool(text))
+
+    def _build_content_row(self) -> QSplitter:
+        content = QSplitter(Qt.Horizontal)
+        content.setChildrenCollapsible(False)
 
         stats_group = QGroupBox(tr("live_statistics"))
-        stats_group.setMinimumWidth(260)
-        stats_group.setMaximumWidth(340)
+        stats_group.setMinimumWidth(220)
         self._stats_grid = QGridLayout(stats_group)
         self._stats_grid.setSpacing(4)
         placeholder = QLabel(tr("no_data_placeholder"))
         placeholder.setStyleSheet(theme.muted_placeholder_qss())
         self._stats_grid.addWidget(placeholder, 0, 0)
-        bottom_row.addWidget(stats_group)
+        content.addWidget(stats_group)
 
         self._charts_group = QGroupBox(tr("performance_charts"))
         charts_group_layout = QVBoxLayout(self._charts_group)
-        charts_group_layout.setContentsMargins(6, 6, 6, 6)
+        charts_group_layout.setContentsMargins(6, 6, 2, 6)
         charts_group_layout.setSpacing(0)
 
         self._charts_scroll = QScrollArea(self._charts_group)
@@ -232,8 +241,32 @@ class MonitorView(QWidget, ChartViewMixin):
         self._plots = self._build_chart_grid(charts_layout)
         self._charts_scroll.setWidget(self._charts_content)
         charts_group_layout.addWidget(self._charts_scroll)
-        bottom_row.addWidget(self._charts_group, stretch=1)
-        return bottom_row
+        content.addWidget(self._charts_group)
+
+        # Stats keep their width; the chart grid absorbs the rest.
+        content.setStretchFactor(0, 0)
+        content.setStretchFactor(1, 1)
+        content.setSizes([260, 900])
+        self._content_splitter = content
+        self._restore_content_splitter()
+        return content
+
+    _CONTENT_SPLITTER_KEY = "stats_charts_splitter_state"
+
+    def _restore_content_splitter(self) -> None:
+        state = app_config.get(self._CONTENT_SPLITTER_KEY)
+        if isinstance(state, str) and state:
+            self._content_splitter.restoreState(QByteArray.fromBase64(state.encode()))
+
+    def save_layout_state(self) -> None:
+        """Persist the stats/charts divider (called from MainWindow.closeEvent)."""
+        splitter = getattr(self, "_content_splitter", None)
+        if splitter is None:
+            return
+        app_config.set(
+            self._CONTENT_SPLITTER_KEY,
+            splitter.saveState().toBase64().data().decode(),
+        )
 
     # ------------------------------------------------------------------
     # Chart refresh (fast, 500 ms)
@@ -275,7 +308,7 @@ class MonitorView(QWidget, ChartViewMixin):
         # Machine info is available before capture starts; keep it visible even
         # when no PresentMon frames have arrived yet.
         self._refresh_system_info()
-        self._monitored_label.setText(self._get_monitored_label_text())
+        self._sync_monitored_label()
 
         procs = self._get_process_names()
         if not procs:
@@ -405,9 +438,6 @@ class MonitorView(QWidget, ChartViewMixin):
         if self._vis_panel is None:
             return
         self._vis_panel.set_expanded(expanded)
-
-    def is_visibility_panel_visible(self) -> bool:
-        return self.is_visibility_panel_expanded()
 
     def is_visibility_panel_expanded(self) -> bool:
         return self._vis_panel is not None and self._vis_panel.is_expanded()

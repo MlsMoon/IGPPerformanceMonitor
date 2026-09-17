@@ -5,7 +5,7 @@ Provides:
 - ``DARK`` / ``LIGHT`` presets (tuned for a performance monitor).
 - A tiny manager (:func:`current_theme`, :func:`set_theme`, :func:`toggle_theme`)
   with JSON config-file persistence (see :mod:`src.core.app_config`) and a ``themeChanged`` signal.
-- QSS generators (:func:`app_qss`, :func:`card_qss`, :func:`stats_tile_qss`,
+- QSS generators (:func:`app_qss`, :func:`card_qss`, :func:`stats_list_qss`,
   :func:`system_bar_qss`, :func:`icon_button_qss`, :func:`value_badge_qss`).
 - :func:`apply_to_plot` — applies bg / axis / grid styling to a pyqtgraph PlotWidget
   (re-callable, so live theme switching just re-runs it).
@@ -39,7 +39,12 @@ pg.setConfigOption("foreground", "#9aa3ad")
 
 @dataclass(frozen=True)
 class Theme:
-    """All colours for one visual theme."""
+    """All colours for one visual theme.
+
+    The design is flat: surfaces are separated by background contrast alone
+    (window < panel < card), never by shadows or heavy outlines. ``border`` is a
+    hairline reserved for inputs, lists and bar separators.
+    """
 
     name: str
     is_dark: bool
@@ -74,28 +79,25 @@ class Theme:
     selection_text: str = "#ffffff"
     # Fill alpha for area under curves (0-255)
     fill_alpha: int = 55
-    # Elevation / depth (beautification)
-    card_highlight: str = "#2e343d"   # card border — slightly lighter than border, elevation edge
-    input_bg: str = "#161920"          # inputs/lists sit below panel (inset feel)
-    shadow_color: str = "#000000"      # drop-shadow color
-    shadow_alpha: int = 160            # 0-255 (DARK higher; LIGHT softer)
-    shadow_blur: int = 18              # px
-    shadow_offset_y: int = 4           # px (downward)
+    # Flat interaction states
+    hover_bg: str = "#232833"          # surface under the cursor
+    input_bg: str = "#14171d"          # inputs / lists sit one step below panel
 
 
 DARK = Theme(
     name="dark",
     is_dark=True,
-    window_bg="#121419",
-    panel_bg="#1a1d23",
-    card_bg="#22262f",
-    border="#2c313a",
+    window_bg="#0f1115",
+    panel_bg="#161920",
+    card_bg="#1c2027",
+    border="#262b34",
     text_primary="#e8ebf1",
     text_secondary="#9ba4af",
-    text_muted="#6c7280",
-    plot_bg="#1e2229",
-    plot_fg="#8a929c",
-    grid_alpha=0.13,
+    text_muted="#69707b",
+    # Charts sit flush inside their card — no inset panel look.
+    plot_bg="#1c2027",
+    plot_fg="#858d98",
+    grid_alpha=0.11,
     accent=["#4dabf7", "#51cf66", "#ffa94d", "#cc5de8"],
     good="#51cf66",
     warn="#ffa94d",
@@ -109,21 +111,23 @@ DARK = Theme(
     selection="#9c36b5",
     selection_text="#ffffff",
     fill_alpha=55,
+    hover_bg="#232833",
+    input_bg="#14171d",
 )
 
 LIGHT = Theme(
     name="light",
     is_dark=False,
-    window_bg="#eef0f4",
-    panel_bg="#f4f6f9",
+    window_bg="#f0f2f6",
+    panel_bg="#f7f8fb",
     card_bg="#ffffff",
-    border="#dce0e7",
+    border="#e3e7ee",
     text_primary="#26303a",
     text_secondary="#5b6470",
     text_muted="#8b94a0",
-    plot_bg="#fafbfd",
+    plot_bg="#ffffff",
     plot_fg="#5b6470",
-    grid_alpha=0.22,
+    grid_alpha=0.20,
     accent=["#1971c2", "#2f9e44", "#d9480f", "#9c36b5"],
     good="#2f9e44",
     warn="#e8590c",
@@ -137,15 +141,19 @@ LIGHT = Theme(
     selection="#9c36b5",
     selection_text="#ffffff",
     fill_alpha=45,
-    card_highlight="#ffffff",
+    hover_bg="#eaeef4",
     input_bg="#ffffff",
-    shadow_color="#3a4250",
-    shadow_alpha=70,
-    shadow_blur=16,
-    shadow_offset_y=3,
 )
 
 _THEMES = {"dark": DARK, "light": LIGHT}
+
+# Corner radii — one scale for the whole app, shared by QSS and custom painters.
+# Tuned for a dense tool UI (Linear / Grafana territory), not a content site:
+# small radii read as precise, large ones read as soft and waste edge pixels.
+RADIUS_SURFACE = 6    # group boxes, chip bars, panels
+RADIUS_CARD = 6       # chart cards, the stats list
+RADIUS_CONTROL = 4    # buttons, inputs, combo boxes
+RADIUS_CHIP = 3       # small pills, icon buttons, menu rows
 
 
 # ---------------------------------------------------------------------------
@@ -244,14 +252,35 @@ def fill_brush(hex_color: str, alpha: int | None = None) -> pg.mkBrush:
     return pg.mkBrush(c)
 
 
+def lerp_color(start: str | QColor, end: str | QColor, t: float) -> QColor:
+    """Blend two colours; ``t`` 0 → *start*, 1 → *end*. For animated painting."""
+    t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+    a, b = QColor(start), QColor(end)
+    return QColor(
+        round(a.red() + (b.red() - a.red()) * t),
+        round(a.green() + (b.green() - a.green()) * t),
+        round(a.blue() + (b.blue() - a.blue()) * t),
+    )
+
+
+def tint(hex_color: str, alpha: int) -> str:
+    """An rgba() string for *hex_color* — flat accent washes in QSS."""
+    return _rgba(hex_color, alpha)
+
+
 # ---------------------------------------------------------------------------
 # QSS generators
 # ---------------------------------------------------------------------------
 
 def app_qss(t: Theme = None) -> str:
-    """Global stylesheet — applied at the QApplication level (covers menus)."""
+    """Global stylesheet — applied at the QApplication level (covers menus).
+
+    Flat by design: surfaces are filled shapes, outlines are reserved for inputs
+    and separators, and every interactive state is a background/colour swap.
+    """
     t = t or current_theme()
     hover = t.accent[0]
+    soft = _rgba(hover, 40)
     return f"""
         QWidget {{
             background-color: {t.window_bg};
@@ -260,59 +289,76 @@ def app_qss(t: Theme = None) -> str:
             font-size: 10pt;
         }}
         QMainWindow, QDialog {{ background-color: {t.window_bg}; }}
-        QMenuBar {{ background-color: {t.window_bg}; color: {t.text_primary}; border-bottom: 1px solid {t.border}; }}
-        QMenuBar::item {{ background: transparent; padding: 4px 10px; }}
-        QMenuBar::item:selected {{ background: {t.border}; }}
-        QMenu {{ background-color: {t.panel_bg}; color: {t.text_primary}; border: 1px solid {t.border}; }}
-        QMenu::item {{ padding: 5px 22px 5px 14px; }}
-        QMenu::item:selected {{ background-color: {hover}; color: #ffffff; }}
-        QMenu::separator {{ height: 1px; background: {t.border}; margin: 4px 8px; }}
-        QStatusBar {{ background-color: {t.window_bg}; color: {t.text_secondary}; border-top: 1px solid {t.border}; }}
+        QMenuBar {{
+            background-color: {t.window_bg}; color: {t.text_primary};
+            border-bottom: 1px solid {t.border}; padding: 3px 6px;
+        }}
+        QMenuBar::item {{ background: transparent; padding: 4px 10px; border-radius: {RADIUS_CHIP}px; }}
+        QMenuBar::item:selected {{ background: {t.border}; color: {hover}; }}
+        QMenuBar::item:pressed {{ background: {t.panel_bg}; color: {hover}; }}
+        QMenu {{
+            background-color: {t.panel_bg}; color: {t.text_primary};
+            border: 1px solid {t.border}; border-radius: {RADIUS_CONTROL}px; padding: 5px;
+        }}
+        QMenu::item {{ padding: 6px 24px 6px 14px; border-radius: {RADIUS_CHIP}px; }}
+        QMenu::item:selected {{ background-color: {soft}; color: {hover}; }}
+        QMenu::separator {{ height: 1px; background: {t.border}; margin: 5px 8px; }}
+        QStatusBar {{
+            background-color: {t.window_bg}; color: {t.text_secondary};
+            border-top: 1px solid {t.border}; padding: 2px 10px;
+        }}
+        QStatusBar::item {{ border: none; }}
         QGroupBox {{
             background-color: {t.panel_bg};
-            border: 1px solid {t.border};
-            border-radius: 10px;
-            margin-top: 16px;
-            padding-top: 14px;
+            border: none;
+            border-radius: {RADIUS_SURFACE}px;
+            margin-top: 15px;
+            padding: 14px 10px 10px 10px;
             font-weight: 600;
             color: {t.text_primary};
         }}
         QGroupBox::title {{
             subcontrol-origin: margin;
-            left: 12px; padding: 0 6px;
+            left: 4px; padding: 0 4px;
             color: {t.text_secondary};
+            font-size: 9pt;
         }}
         QLabel {{ background: transparent; color: {t.text_primary}; }}
         QPushButton {{
-            background-color: {t.panel_bg};
+            background-color: {t.card_bg};
             color: {t.text_primary};
-            border: 1px solid {t.border};
-            border-radius: 8px;
-            padding: 7px 16px;
+            border: none;
+            border-radius: {RADIUS_CONTROL}px;
+            padding: 8px 16px;
         }}
-        QPushButton:hover {{ background-color: {t.border}; border-color: {hover}; color: {hover}; }}
-        QPushButton:pressed {{ background-color: {t.border}; }}
-        QPushButton:disabled {{ color: {t.text_muted}; }}
+        QPushButton:hover {{ background-color: {soft}; color: {hover}; }}
+        QPushButton:pressed {{ background-color: {t.hover_bg}; color: {hover}; }}
+        QPushButton:disabled {{ background-color: {t.panel_bg}; color: {t.text_muted}; }}
         QLineEdit, QPlainTextEdit, QTextEdit {{
             background-color: {t.input_bg};
             color: {t.text_primary};
             border: 1px solid {t.border};
-            border-radius: 8px;
-            padding: 5px 8px;
+            border-radius: {RADIUS_CONTROL}px;
+            padding: 6px 9px;
             selection-background-color: {hover};
         }}
+        QLineEdit:hover, QPlainTextEdit:hover, QTextEdit:hover {{ border-color: {t.text_muted}; }}
         QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus {{ border-color: {hover}; }}
         QListWidget, QTableWidget, QTreeView {{
             background-color: {t.input_bg};
             color: {t.text_primary};
             border: 1px solid {t.border};
-            border-radius: 8px;
+            border-radius: {RADIUS_CONTROL}px;
             alternate-background-color: {t.panel_bg};
             selection-background-color: {t.selection};
             selection-color: {t.selection_text};
             outline: 0;
+            padding: 2px;
         }}
-        QListWidget::item, QTableWidget::item {{ padding: 6px 10px; border: 0; }}
+        QListWidget::item, QTableWidget::item {{
+            padding: 6px 10px; border: 0; border-radius: {RADIUS_CHIP}px;
+        }}
+        QListWidget::item:hover {{ background-color: {soft}; color: {hover}; }}
         QHeaderView::section {{
             background-color: {t.panel_bg};
             color: {t.text_secondary};
@@ -323,79 +369,87 @@ def app_qss(t: Theme = None) -> str:
             font-weight: 600;
         }}
         QScrollBar:vertical {{ background: transparent; width: 10px; margin: 0; }}
-        QScrollBar::handle:vertical {{ background: {t.text_muted}; border-radius: 6px; min-height: 28px; }}
+        QScrollBar::handle:vertical {{ background: {t.text_muted}; border-radius: {RADIUS_CHIP}px; min-height: 28px; margin: 2px; }}
         QScrollBar::handle:vertical:hover {{ background: {t.text_secondary}; }}
         QScrollBar:horizontal {{ background: transparent; height: 10px; margin: 0; }}
-        QScrollBar::handle:horizontal {{ background: {t.text_muted}; border-radius: 6px; min-width: 28px; }}
+        QScrollBar::handle:horizontal {{ background: {t.text_muted}; border-radius: {RADIUS_CHIP}px; min-width: 28px; margin: 2px; }}
+        QScrollBar::handle:horizontal:hover {{ background: {t.text_secondary}; }}
         QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
-        QSplitter::handle {{ background: {t.border}; }}
-        QSplitter::handle:horizontal {{ width: 3px; }}
-        QSplitter::handle:vertical {{ height: 3px; }}
-        QSplitter::handle:hover {{ background: {hover}; }}
-        QTabWidget::pane {{ border: 1px solid {t.border}; border-radius: 8px; top: -1px; }}
+        QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+        QSplitter::handle {{ background: transparent; }}
+        QSplitter::handle:horizontal {{ width: 8px; }}
+        QSplitter::handle:vertical {{ height: 8px; }}
+        QSplitter::handle:hover {{ background: {soft}; }}
+        /* Flat tabs: an accent underline instead of a raised folder tab. */
+        QTabWidget::pane {{ border: none; border-top: 1px solid {t.border}; top: -1px; }}
         QTabBar::tab {{
-            background: {t.window_bg}; color: {t.text_secondary};
-            border: 1px solid {t.border}; border-bottom: none;
-            padding: 6px 14px; border-top-left-radius: 8px; border-top-right-radius: 8px;
-            margin-right: 2px;
+            background: transparent; color: {t.text_secondary};
+            border: none; border-bottom: 2px solid transparent;
+            padding: 8px 16px; margin-right: 2px;
         }}
-        QTabBar::tab:selected {{ background: {t.panel_bg}; color: {t.text_primary}; }}
+        QTabBar::tab:hover {{ color: {t.text_primary}; }}
+        QTabBar::tab:selected {{ color: {hover}; border-bottom-color: {hover}; }}
         QCheckBox, QRadioButton {{ color: {t.text_primary}; spacing: 6px; }}
         QComboBox {{
             background-color: {t.input_bg}; color: {t.text_primary};
-            border: 1px solid {t.border}; border-radius: 8px; padding: 4px 8px;
+            border: 1px solid {t.border}; border-radius: {RADIUS_CONTROL}px; padding: 5px 9px;
         }}
         QComboBox:focus {{ border-color: {hover}; }}
         QComboBox QAbstractItemView {{
             background-color: {t.panel_bg}; color: {t.text_primary};
-            border: 1px solid {t.border}; selection-background-color: {hover};
+            border: 1px solid {t.border}; border-radius: {RADIUS_CHIP}px;
+            selection-background-color: {soft}; selection-color: {hover};
         }}
         QSpinBox {{
             background-color: {t.input_bg}; color: {t.text_primary};
-            border: 1px solid {t.border}; border-radius: 8px; padding: 3px 6px;
+            border: 1px solid {t.border}; border-radius: {RADIUS_CONTROL}px; padding: 4px 6px;
         }}
         QSpinBox:focus {{ border-color: {hover}; }}
         QSpinBox::up-button, QSpinBox::down-button {{
-            background-color: {t.panel_bg}; border: none; width: 18px;
+            background-color: transparent; border: none; width: 18px;
         }}
-        QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background-color: {t.border}; }}
+        QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background-color: {soft}; }}
         QSpinBox::up-arrow {{ image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 5px solid {t.text_secondary}; width: 0; height: 0; }}
         QSpinBox::down-arrow {{ image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid {t.text_secondary}; width: 0; height: 0; }}
-        QToolTip {{ background-color: {t.card_bg}; color: {t.text_primary}; border: 1px solid {t.border}; border-radius: 6px; padding: 4px 8px; }}
+        QToolTip {{
+            background-color: {t.card_bg}; color: {t.text_primary};
+            border: 1px solid {t.border}; border-radius: {RADIUS_CHIP}px; padding: 5px 9px;
+        }}
     """
 
 
-def card_qss(t: Theme = None) -> str:
-    """Chart-card body styling."""
+def card_qss(t: Theme = None, selector: str = "QFrame") -> str:
+    """Flat card surface — filled shape, no outline, no shadow."""
     t = t or current_theme()
     return (
-        f"ChartCard {{ background-color: {t.card_bg}; border: 1px solid {t.card_highlight};"
-        f" border-radius: 10px; }}"
+        f"{selector} {{ background-color: {t.card_bg}; border: none;"
+        f" border-radius: {RADIUS_CARD}px; }}"
     )
 
 
 def panel_button_qss(t: Theme = None, role: str = "primary") -> str:
-    """Coloured action-button QSS for panels/dialogs.
+    """Solid action-button QSS for panels/dialogs.
 
     role: "start" (green/good), "stop" (red/bad), "primary" (blue/accent[0]).
+    Hover/press stay flat: the same fill, one step darker via an accent wash.
     """
     t = t or current_theme()
     color = {"start": t.good, "stop": t.bad, "primary": t.accent[0]}[role]
     return (
         f"QPushButton {{ background-color: {color}; color: #ffffff; font-weight: 600;"
-        f" border: 1px solid {color}; border-radius: 6px; padding: 6px 14px; }}"
-        f"QPushButton:hover {{ background-color: {t.panel_bg}; color: {color}; }}"
-        f"QPushButton:pressed {{ background-color: {t.border}; color: {color}; }}"
-        f"QPushButton:disabled {{ background-color: {t.text_muted}; color: #ffffff; border: 1px solid {t.text_muted}; }}"
+        f" border: none; border-radius: {RADIUS_CONTROL}px; padding: 8px 14px; }}"
+        f"QPushButton:hover {{ background-color: {_rgba(color, 200)}; }}"
+        f"QPushButton:pressed {{ background-color: {_rgba(color, 160)}; }}"
+        f"QPushButton:disabled {{ background-color: {t.panel_bg}; color: {t.text_muted}; }}"
     )
 
 
 def value_badge_qss(t: Theme = None, accent: str | None = None) -> str:
-    """Big live-value readout in a card header."""
+    """Big live-value readout in a card header (transparent — the card shows through)."""
     t = t or current_theme()
     c = accent or t.accent[0]
     return (
-        f"QLabel {{ color: {c}; background: {t.card_bg};"
+        f"QLabel {{ color: {c}; background: transparent;"
         f" font-family: 'Consolas','Cascadia Mono',monospace; font-size: 13pt; font-weight: 700;"
         f" padding: 0 4px; }}"
     )
@@ -414,23 +468,32 @@ def muted_placeholder_qss(t: Theme = None, padding: str = "8px") -> str:
 
 
 def icon_button_qss(t: Theme = None) -> str:
-    """AutoSize / maximize toolbar buttons."""
+    """AutoSize / maximize toolbar buttons — ghost buttons until hovered."""
     t = t or current_theme()
     hover = t.accent[0]
     return (
-        "QPushButton { background: transparent; border: 1px solid transparent;"
-        f" border-radius: 6px; color: {t.text_secondary}; font-weight: 700; padding: 0; }}"
-        f"QPushButton:hover {{ background: {t.border}; color: {hover}; border-color: {t.border}; }}"
-        f"QPushButton:pressed {{ background: {t.panel_bg}; }}"
+        "QPushButton { background: transparent; border: none;"
+        f" border-radius: {RADIUS_CHIP}px; color: {t.text_muted};"
+        " font-weight: 700; padding: 0; }"
+        f"QPushButton:hover {{ background: {_rgba(hover, 40)}; color: {hover}; }}"
+        f"QPushButton:pressed {{ background: {_rgba(hover, 70)}; }}"
     )
 
 
-def stats_tile_qss(t: Theme = None) -> str:
-    """A single statistics value tile."""
+def stats_list_qss(t: Theme = None) -> str:
+    """The statistics readout: one surface, rows split by hairlines.
+
+    Ten separate rounded tiles stacked vertically turn the panel into a column of
+    blobs. A single container with hairline-separated rows reads as one table and
+    leaves exactly one rounded shape on screen.
+    """
     t = t or current_theme()
     return (
-        f"QFrame#StatsTile {{ background-color: {t.card_bg}; border: 1px solid {t.card_highlight};"
-        f" border-radius: 10px; }}"
+        f"QFrame#StatsList {{ background-color: {t.card_bg}; border: none;"
+        f" border-radius: {RADIUS_CARD}px; }}"
+        "QFrame#StatsRow, QFrame#StatsRowLast"
+        " { background: transparent; border: none; }"
+        f"QFrame#StatsRow {{ border-bottom: 1px solid {t.border}; }}"
     )
 
 
@@ -438,9 +501,9 @@ def system_bar_qss(t: Theme = None) -> str:
     """Slim system-info chip bar."""
     t = t or current_theme()
     return (
-        "QFrame#SystemBar { background-color: " + t.panel_bg + ";"
-        " border: 1px solid " + t.card_highlight + "; border-radius: 10px; }"
-        " QLabel#SysChip { background: transparent; color: " + t.text_secondary + ";"
+        f"QFrame#SystemBar {{ background-color: {t.panel_bg}; border: none;"
+        f" border-radius: {RADIUS_SURFACE}px; }}"
+        f" QLabel#SysChip {{ background: transparent; color: {t.text_secondary};"
         " padding: 4px 2px; }"
     )
 
@@ -635,30 +698,6 @@ class Crosshair:
         self._hline.setPen(line_pen)
         self._label.setColor(t.text_primary)
         self._label.fill = pg.mkBrush(QColor(t.card_bg))
-
-
-def apply_shadow(widget, t: Theme = None) -> None:
-    """Attach (or refresh) a soft drop-shadow on *widget* (elevation cue).
-
-    ``QGraphicsDropShadowEffect`` is cached by Qt: the shadow renders into an
-    offscreen pixmap on geometry change, then blits per paint — so the inner
-    widget (e.g. a ChartCard's plot, refreshing every 500 ms) repaints freely
-    without re-running the blur. Idempotent: re-calling with a new theme mutates
-    the existing effect in place.
-    """
-    from PyQt5.QtWidgets import QGraphicsDropShadowEffect
-    t = t or current_theme()
-    eff = widget.graphicsEffect()
-    if isinstance(eff, QGraphicsDropShadowEffect):
-        shadow = eff
-    else:
-        shadow = QGraphicsDropShadowEffect()
-        widget.setGraphicsEffect(shadow)
-    shadow.setBlurRadius(t.shadow_blur)
-    shadow.setOffset(0, t.shadow_offset_y)
-    c = QColor(t.shadow_color)
-    c.setAlpha(t.shadow_alpha)
-    shadow.setColor(c)
 
 
 def apply_app_qss(t: Theme = None) -> None:

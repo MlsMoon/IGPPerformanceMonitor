@@ -14,7 +14,10 @@ from PyQt5.QtWidgets import (
 )
 
 from src.i18n import tr
-from src.ui.theme import apply_shadow, current_theme
+from src.ui import motion
+from src.ui.theme import (
+    RADIUS_CHIP, RADIUS_SURFACE, current_theme, tint,
+)
 
 
 class _FlowLayout(QLayout):
@@ -106,7 +109,6 @@ class ChartVisibilityPanel(QWidget):
 
         t = current_theme()
         self.setStyleSheet(self._qss(t))
-        apply_shadow(self, t)
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 4, 8, 4)
@@ -155,9 +157,21 @@ class ChartVisibilityPanel(QWidget):
         if self._expanded == expanded:
             return
         self._expanded = expanded
-        self._chips.setVisible(self._expanded)
         self._toggle.setArrowType(Qt.DownArrow if self._expanded else Qt.RightArrow)
+        self._animate_chips(expanded)
         self.expanded_changed.emit(self._expanded)
+
+    def _animate_chips(self, expanded: bool):
+        """Show/hide the chip rows: the layout snaps, only opacity moves.
+
+        An earlier version animated ``maximumHeight``, which re-runs the flow
+        layout every frame and drags the charts below it up and down. Collapsing
+        is instant — there is nothing to explain about content going away.
+        """
+        chips = self._chips
+        chips.setVisible(expanded)
+        if expanded and self.isVisible():
+            motion.fade_in(chips, motion.NORMAL)
 
     def is_expanded(self) -> bool:
         return self._expanded
@@ -185,26 +199,28 @@ class ChartVisibilityPanel(QWidget):
     def apply_theme(self, t=None):
         t = t or current_theme()
         self.setStyleSheet(self._qss(t))
-        apply_shadow(self, t)
         self._title.setStyleSheet(
             f"color: {t.text_primary}; font-weight: 600; font-size: 9pt;")
 
-    def _qss(self, t) -> str:
+    @staticmethod
+    def _qss(t) -> str:
+        """Flat pills: an accent wash marks 'shown', a flat fill marks 'hidden'."""
+        accent = t.accent[0]
         return (
             f"QWidget#ChartVisPanel {{ background-color: {t.panel_bg};"
-            f" border: 1px solid {t.border}; border-radius: 10px; }}"
+            f" border: none; border-radius: {RADIUS_SURFACE}px; }}"
             "QToolButton#ChartVisToggle { background: transparent; border: none;"
             f" color: {t.text_secondary}; padding: 1px; }}"
             "QPushButton#ChartVisChip {"
-            f" background-color: {t.card_bg}; color: {t.text_primary};"
-            f" border: 1px solid {t.border}; border-radius: 6px;"
-            " min-height: 22px; padding: 1px 8px;"
+            f" background-color: {t.card_bg}; color: {t.text_muted};"
+            f" border: none; border-radius: {RADIUS_CHIP}px;"
+            " min-height: 24px; padding: 2px 10px;"
             " font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;"
             " font-size: 9pt; text-align: center;"
             "}"
-            f"QPushButton#ChartVisChip:hover {{ border-color: {t.accent[0]}; }}"
-            f"QPushButton#ChartVisChip:checked {{ border-color: {t.accent[0]};"
-            f" color: {t.text_primary}; background-color: {t.panel_bg}; }}"
-            f"QPushButton#ChartVisChip:!checked {{ color: {t.text_muted};"
-            f" background-color: {t.window_bg}; }}"
+            f"QPushButton#ChartVisChip:hover {{ background-color: {tint(accent, 30)};"
+            f" color: {t.text_primary}; }}"
+            f"QPushButton#ChartVisChip:checked {{ background-color: {tint(accent, 45)};"
+            f" color: {accent}; font-weight: 600; }}"
+            f"QPushButton#ChartVisChip:checked:hover {{ background-color: {tint(accent, 70)}; }}"
         )

@@ -9,7 +9,6 @@ from PyQt5.QtWidgets import (
     QLabel, QFileDialog, QCheckBox, QMessageBox,
     QGroupBox, QRadioButton,
 )
-from PyQt5.QtCore import Qt
 
 from src.i18n import tr
 from src.core.data_store import DataStore

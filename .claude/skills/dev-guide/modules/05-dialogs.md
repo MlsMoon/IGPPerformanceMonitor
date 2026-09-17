@@ -19,7 +19,7 @@ Export CSV (GUI + headless), import for offline analysis, show changelog.
 - **`write_stats` is module-level** (GUI + headless). The instance method delegates.
 - **Missing → `"NA"`** via `is not None` (not `>0`). Keep real 0.
 - **Export encoding** is the system default (`open(newline="")` without encoding). Import tries utf-8-sig / gbk / latin-1.
-- **Analysis UI is offline visualization** (summary + Performance / System / Data Quality). It reuses `ChartCard` (theme, crosshair, badges) but **not** the live `ChartViewMixin` grid.
+- **Analysis UI is offline visualization** (summary + Performance / System / Data Quality). It reuses `ChartCard` (theme, crosshair, badges) and `chart_base.build_system_chip_bar`, but **not** the live `ChartViewMixin` grid. The chip bar used to be duplicated here — keep the shared builder.
 - **Stutter analysis** (`stutter_analysis.py`) is compute-only. Default thresholds: `>33.3ms`, `>50ms`, `>2×` rolling median (120-frame window, 30-frame baseline). Frame time can be recovered from FPS. Does not change CSV schema.
 - **Analysis dialog is modal** — no live theme toggle; each `exec_` builds with the current theme.
 - **Imported FPS:** keep the CSV `FPS` column when present; otherwise derive from frame time.
