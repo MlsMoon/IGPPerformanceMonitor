@@ -18,6 +18,7 @@ Start the app (GUI or headless), guarantee admin, and let `CaptureSession` own P
 - **GUI start/stop uses `CaptureSession.start/stop`.** The window may connect `session.wrapper` signals and read `session.data_store`, but must not call `wrapper.configure` + `sampler.configure` + `start` itself.
 - **Startup update check:** `QTimer.singleShot(1500, self._auto_check_update)`; skip in dev; silent unless an update exists. Source is GitHub Releases (`DEFAULT_APP_MANIFEST_URL`).
 - **Window icon:** `setWindowIcon(QIcon(str(_resolve_icon_path())))` → `assets/icon.png` (bundled when frozen). Do not add a menu-bar corner widget.
+- **Dev mode marker:** `is_dev_mode()` is `not sys.frozen`. Source runs must show it on the window title (`window_title_dev`) **and** a permanent status-bar badge (`dev_badge`). Packaged EXE shows neither. Do not rely on the update-dialog copy alone — users never open that on a normal launch.
 - **`win_chrome.install(app)` runs right after `setStyle("Fusion")`**, before the first window exists, so dialogs and message boxes get a themed title bar too. Details and the `setWindowFlags` caveat are in `04-live-ui.md`.
 - **Menus are built by `_build_file_menu` / `_build_view_menu` / `_build_help_menu`** via the `_add_action` / `_add_toggle` helpers. New shortcuts must also land in `shortcuts_dialog._SHORTCUTS`.
 - **`closeEvent`:** stop+wait wrapper and sampler, and `overlay.shutdown()` (otherwise overlays leak). Capture-time overlay hide is `set_capture_active(False)` from `_on_state_changed`, not a bare `hide()` in `_stop_capture`.

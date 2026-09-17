@@ -18,6 +18,8 @@ TRANSLATIONS: dict[str, str] = {
 
     # main_window.py
     "window_title": "IGP Performance Monitor",
+    "window_title_dev": "{}  [dev]",
+    "dev_badge": "DEV",
     "status_ready": "Ready",
     "status_ready_hint": "Ready — add processes and click Start",
     "status_capturing": "Capturing... {} frames | {:.0f}s elapsed",
@@ -96,6 +98,7 @@ TRANSLATIONS: dict[str, str] = {
     "label_core": "Core",
     "charts_panel": "Show / hide charts",
     "menu_charts_panel": "Charts Panel",
+    "system_info_panel": "System info",
 
     # csv_export.py
     "export_title": "Export to CSV",

@@ -16,7 +16,7 @@ import pyqtgraph as pg
 from PyQt5.QtCore import Qt, QEvent, QRectF, QSize, pyqtSignal
 from PyQt5.QtWidgets import (
     QGridLayout, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QMenu,
-    QFrame,
+    QFrame, QSizePolicy,
 )
 from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter
 
@@ -162,67 +162,115 @@ def _prepare_series(
 # System info chip bar (shared by the live view and the analysis dialog)
 # ---------------------------------------------------------------------------
 
-class SystemChip(QLabel):
-    """One system-info chip, elided to fit.
+def _split_system_metric(text: str) -> tuple[str, str]:
+    """Split ``CPU: name`` into a key and a value."""
+    if ": " in text:
+        key, value = text.split(": ", 1)
+        return key.strip(), value.strip()
+    if ":" in text:
+        key, value = text.split(":", 1)
+        return key.strip(), value.strip()
+    return "", text.strip()
 
-    A plain QLabel reports its full text width as its *minimum*, so a long GPU
-    name used to push the whole window's minimum width past 1100 px. This keeps
-    the natural width as the size hint but lets the chip shrink and elide, with
-    the full value on the tooltip.
 
-    Only the *width* is ours to decide. The height comes from QLabel, which adds
-    the stylesheet's padding (Qt resolves padding into the contents margins);
-    computing it from font metrics alone cost 8px and clipped every chip.
+class SystemChip(QWidget):
+    """One system-info row: fixed key + wrapping value. Never elides.
+
+    Putting CPU / GPU / RAM / Display on one flowing row squeezed each value
+    and wrapped mid-label (``4060`` / ``Ti``, ``31.9`` / ``GB``). One metric
+    per row keeps the full string. ``minimumSizeHint`` stays narrow so a long
+    GPU name cannot push the window past ``setMinimumSize``.
     """
 
-    _MIN_WIDTH = 56
-    # QFontMetrics advances are a hair narrower than what the glyphs actually
-    # paint (hinting, subpixel positioning). Sized to the advance exactly, the
-    # final character loses a column of pixels and reads as a hard cut.
-    _SLACK = 2
+    _MIN_VALUE_WIDTH = 48
+    _KEY_GAP = 10
+    _KEY_SAMPLE = "Display"
 
     def __init__(self, text: str, parent=None):
         super().__init__(parent)
-        self.setObjectName("SysChip")
+        self.setObjectName("SystemChip")
         self._full_text = text
+        key, value = _split_system_metric(text)
         self.setToolTip(text)
-        self._apply_elide()
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-    def _padding(self) -> tuple[int, int]:
-        m = self.contentsMargins()
-        return m.left() + m.right(), m.top() + m.bottom()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(2, 1, 2, 1)
+        lay.setSpacing(self._KEY_GAP)
 
-    def _apply_elide(self) -> None:
-        metrics = QFontMetrics(self.font())
-        horizontal, _ = self._padding()
-        width = max(self._MIN_WIDTH, self.width() - horizontal - self._SLACK)
-        super().setText(metrics.elidedText(self._full_text, Qt.ElideRight, width))
+        self._key = QLabel(key)
+        self._key.setObjectName("SysChipKey")
+        self._key.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        self._value = QLabel(value)
+        self._value.setObjectName("SysChipValue")
+        self._value.setWordWrap(True)
+        self._value.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self._value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._sync_key_width()
+        lay.addWidget(self._key, 0)
+        lay.addWidget(self._value, 1)
+
+    def text(self) -> str:
+        return self._full_text
+
+    def value_text(self) -> str:
+        return self._value.text()
+
+    def apply_colors(self, key_color: str, value_color: str):
+        self._key.setStyleSheet(
+            f"color: {key_color}; font-size: 9pt; background: transparent;")
+        self._value.setStyleSheet(
+            f"color: {value_color}; font-size: 9pt; background: transparent;")
+        self._sync_key_width()
+
+    def _key_width(self) -> int:
+        metrics = QFontMetrics(self._key.font())
+        return metrics.horizontalAdvance(self._KEY_SAMPLE)
+
+    def _sync_key_width(self):
+        self._key.setFixedWidth(self._key_width())
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        m = self.layout().contentsMargins()
+        inner = max(
+            self._MIN_VALUE_WIDTH,
+            width - self._key_width() - self._KEY_GAP - m.left() - m.right(),
+        )
+        value_h = self._value.heightForWidth(inner)
+        key_h = self._key.sizeHint().height()
+        return max(value_h, key_h) + m.top() + m.bottom()
 
     def sizeHint(self) -> QSize:
-        horizontal, _ = self._padding()
-        natural = QFontMetrics(self.font()).horizontalAdvance(self._full_text)
-        return QSize(natural + horizontal + self._SLACK, super().sizeHint().height())
+        m = self.layout().contentsMargins()
+        key_w = self._key_width()
+        value_w = QFontMetrics(self._value.font()).horizontalAdvance(self._value.text())
+        height = max(self._key.sizeHint().height(), self._value.sizeHint().height())
+        return QSize(
+            key_w + self._KEY_GAP + value_w + m.left() + m.right() + 2,
+            height + m.top() + m.bottom(),
+        )
 
     def minimumSizeHint(self) -> QSize:
-        horizontal, _ = self._padding()
-        return QSize(self._MIN_WIDTH + horizontal, super().sizeHint().height())
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._apply_elide()
+        m = self.layout().contentsMargins()
+        width = self._key_width() + self._KEY_GAP + self._MIN_VALUE_WIDTH + m.left() + m.right()
+        return QSize(width, self.heightForWidth(width))
 
 
 def build_system_chip_bar(text: str, t=None) -> QFrame:
-    """Slim themed chip bar built from a ' | '-separated system-info string."""
+    """Themed system-info rows from a ' | '-separated string."""
     t = t or current_theme()
     bar = QFrame()
     bar.setObjectName("SystemBar")
     bar.setStyleSheet(system_bar_qss(t))
     bar.setAttribute(Qt.WA_StyledBackground, True)
+    bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
     bar._igp_text = None
-    lay = QHBoxLayout(bar)
-    lay.setContentsMargins(14, 6, 14, 6)
-    lay.setSpacing(18)
+    lay = QVBoxLayout(bar)
+    lay.setContentsMargins(10, 4, 10, 6)
+    lay.setSpacing(2)
     populate_system_chip_bar(bar, text, t)
     return bar
 
@@ -244,10 +292,9 @@ def populate_system_chip_bar(bar: QFrame, text: str, t=None) -> None:
             continue
         chip = SystemChip(seg)
         is_gpu = seg.lower().startswith("gpu")
-        color = t.accent[3] if is_gpu else t.text_secondary
-        chip.setStyleSheet(f"color: {color}; font-size: 9pt;")
+        value_color = t.accent[3] if is_gpu else t.text_primary
+        chip.apply_colors(t.text_muted, value_color)
         lay.addWidget(chip)
-    lay.addStretch()
 
 
 # ---------------------------------------------------------------------------
@@ -978,6 +1025,7 @@ class ChartViewMixin:
         # System info chip bar.
         bar = getattr(self, "_sys_info_bar", None)
         if bar is not None:
-            bar.setStyleSheet(system_bar_qss(t))
+            nested = getattr(self, "_sys_info_panel", None) is not None
+            bar.setStyleSheet(system_bar_qss(t, nested=nested))
             bar._igp_text = None  # force re-populate with themed chip colours
             self._populate_system_bar(bar, self._get_system_info_text())

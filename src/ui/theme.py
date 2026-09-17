@@ -505,14 +505,21 @@ def stats_list_qss(t: Theme = None) -> str:
     )
 
 
-def system_bar_qss(t: Theme = None) -> str:
-    """Slim system-info chip bar."""
+def system_bar_qss(t: Theme = None, *, nested: bool = False) -> str:
+    """Slim system-info chip bar.
+
+    ``nested=True`` when the bar sits inside SystemInfoPanel — that panel
+    already paints the surface, so the bar itself stays transparent.
+    """
     t = t or current_theme()
+    bg = "transparent" if nested else t.panel_bg
     return (
-        f"QFrame#SystemBar {{ background-color: {t.panel_bg}; border: none;"
+        f"QFrame#SystemBar {{ background-color: {bg}; border: none;"
         f" border-radius: {RADIUS_SURFACE}px; }}"
-        f" QLabel#SysChip {{ background: transparent; color: {t.text_secondary};"
-        " padding: 4px 2px; }"
+        f" QLabel#SysChipKey {{ background: transparent; color: {t.text_muted};"
+        " padding: 1px 0; }"
+        f" QLabel#SysChipValue {{ background: transparent; color: {t.text_primary};"
+        " padding: 1px 0; }"
     )
 
 

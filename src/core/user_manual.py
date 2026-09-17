@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from src.core.app_info import resource_root
 from src.i18n import get_locale
+
+# In-document TOCs are replaced by the dialog tree — skip these headings.
+_TOC_TITLES = frozenset({"contents", "目录", "目錄", "目次"})
+_LANG_NAV = re.compile(
+    r"\[(English|简体中文|繁體中文|日本語)\]\s*\(",
+)
 
 # Left-nav pages in display order. Filenames match docs/<locale>/.
 PAGES: tuple[tuple[str, str], ...] = (
@@ -46,6 +54,86 @@ def load_page(page_id: str, locale: str | None = None) -> str:
         return page_path(page_id, locale).read_text(encoding="utf-8")
     except OSError:
         return ""
+
+
+@dataclass(frozen=True)
+class OutlineNode:
+    """One markdown heading for the in-app manual tree."""
+
+    level: int
+    title: str
+    slug: str
+
+
+def _slugify(title: str, used: set[str]) -> str:
+    raw = re.sub(r"\s*\{#[\w-]+\}\s*$", "", title).strip().lower()
+    raw = re.sub(r"[^\w\s-]", "", raw, flags=re.UNICODE)
+    raw = re.sub(r"[-\s]+", "-", raw).strip("-") or "section"
+    slug = raw
+    n = 2
+    while slug in used:
+        slug = f"{raw}-{n}"
+        n += 1
+    used.add(slug)
+    return slug
+
+
+def is_toc_title(title: str) -> bool:
+    return title.strip().casefold() in _TOC_TITLES
+
+
+def page_outline(markdown: str) -> list[OutlineNode]:
+    """Headings below the document H1, skipping the Contents / 目录 block."""
+    used: set[str] = set()
+    nodes: list[OutlineNode] = []
+    skip_first_h1 = True
+    for line in markdown.splitlines():
+        match = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
+        if not match:
+            continue
+        level = len(match.group(1))
+        title = re.sub(r"\s*\{#[\w-]+\}\s*$", "", match.group(2)).strip()
+        if skip_first_h1 and level == 1:
+            skip_first_h1 = False
+            continue
+        skip_first_h1 = False
+        if is_toc_title(title):
+            continue
+        nodes.append(OutlineNode(level, title, _slugify(title, used)))
+    return nodes
+
+
+def strip_contents_section(markdown: str) -> str:
+    """Drop the Contents / 目录 heading and the lines until the next heading."""
+    out: list[str] = []
+    skipping = False
+    for line in markdown.splitlines():
+        match = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
+        if match:
+            title = re.sub(r"\s*\{#[\w-]+\}\s*$", "", match.group(2)).strip()
+            if is_toc_title(title):
+                skipping = True
+                continue
+            skipping = False
+        if skipping:
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def strip_language_nav(markdown: str) -> str:
+    """Drop the inter-locale switcher row (those links are for GitHub, not the app)."""
+    out: list[str] = []
+    for line in markdown.splitlines():
+        if _LANG_NAV.search(line) and line.count("](") >= 2:
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def prepare_in_app_markdown(markdown: str) -> str:
+    """Body shown in the dialog: no language row, no in-document TOC."""
+    return strip_contents_section(strip_language_nav(markdown)).strip()
 
 
 def page_id_for_path(path: Path) -> str | None:

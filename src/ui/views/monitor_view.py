@@ -18,6 +18,7 @@ from src.ui.chart_base import (
     ChartViewMixin, CHART_REGISTRY, _pen, _prepare_series,
 )
 from src.ui.panels.chart_visibility_panel import ChartVisibilityPanel
+from src.ui.panels.system_info_panel import SystemInfoPanel
 
 
 # Per-process line charts (chart name == metric passed to _get_series_data).
@@ -64,6 +65,7 @@ class MonitorView(QWidget, ChartViewMixin):
         self._multicore_curves: dict[str, dict[object, pg.PlotDataItem]] = {}
 
         self._vis_panel: ChartVisibilityPanel | None = None
+        self._sys_info_panel: SystemInfoPanel | None = None
         self._charts_group: QGroupBox | None = None
 
         self._init_ui()
@@ -183,9 +185,10 @@ class MonitorView(QWidget, ChartViewMixin):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
 
-        # System info chip bar
+        # System info chip bar — collapsible, expanded by default.
         self._sys_info_bar = self._build_system_info_label()
-        layout.addWidget(self._sys_info_bar)
+        self._sys_info_panel = SystemInfoPanel(self._sys_info_bar, self)
+        layout.addWidget(self._sys_info_panel)
 
         self._vis_panel = ChartVisibilityPanel(
             CHART_REGISTRY, self._on_panel_toggle, self)
@@ -442,6 +445,14 @@ class MonitorView(QWidget, ChartViewMixin):
     def is_visibility_panel_expanded(self) -> bool:
         return self._vis_panel is not None and self._vis_panel.is_expanded()
 
+    def set_system_info_expanded(self, expanded: bool):
+        if self._sys_info_panel is None:
+            return
+        self._sys_info_panel.set_expanded(expanded)
+
+    def is_system_info_expanded(self) -> bool:
+        return self._sys_info_panel is not None and self._sys_info_panel.is_expanded()
+
     def refresh_display_layout(self):
         """Re-derive chart columns from the charts-area width, then refresh axes.
 
@@ -495,5 +506,7 @@ class MonitorView(QWidget, ChartViewMixin):
         self._multicore_curves.clear()
         if self._vis_panel is not None:
             self._vis_panel.apply_theme()
+        if self._sys_info_panel is not None:
+            self._sys_info_panel.apply_theme()
         self.apply_theme()
         self._refresh_charts()

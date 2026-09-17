@@ -5,7 +5,10 @@ from PyQt5.QtGui import QFontMetrics
 from PyQt5.QtWidgets import QFrame, QScrollArea
 
 from src.ui import motion, win_chrome
-from src.ui.chart_base import SystemChip
+from src.ui.chart_base import SystemChip, build_system_chip_bar
+from src.ui.panels.collapsible_section import CollapsibleSection
+from src.core.app_info import is_dev_mode
+from src.i18n import tr
 from src.ui.main_window import MainWindow
 from src.ui.views.monitor_view import MonitorView
 from src.core.data_store import DataStore
@@ -25,24 +28,54 @@ def run():
     mw = MainWindow()
     assert mw is not None, "MainWindow"
     assert mw.minimumWidth() <= 1000, "1080p-friendly minimum width"
+    assert is_dev_mode(), "offscreen suite runs from source"
+    assert mw.windowTitle() == tr("window_title_dev", tr("window_title")), (
+        "dev mode must mark the window title"
+    )
+    assert mw._dev_badge is not None and mw._dev_badge.text() == tr("dev_badge"), (
+        "dev mode must show a status-bar badge"
+    )
 
-    # A long GPU/display string in the system chip bar must not inflate the
-    # window's real minimum width — the chips elide instead (see SystemChip).
-    long_chip = SystemChip("GPU: " + "NVIDIA GeForce RTX 4060 Ti " * 6)
-    assert long_chip.minimumSizeHint().width() < 100, "system chip must stay shrinkable"
-    assert long_chip.toolTip().startswith("GPU:"), "full text kept on the tooltip"
+    # A long GPU/display string must not inflate the window's real minimum
+    # width. Each metric is a row: the value wraps, it is never cut with "...".
+    long_name = "GPU: " + "NVIDIA GeForce RTX 4060 Ti " * 6
+    long_chip = SystemChip(long_name)
+    assert long_chip.minimumSizeHint().width() < 200, "system row must stay shrinkable"
+    assert long_chip.text() == long_name, "system row must keep the full value"
+    assert "..." not in long_chip.text()
+    assert "..." not in long_chip.value_text()
 
-    # ...but the height is QLabel's to decide. Computing it from font metrics
-    # alone dropped the stylesheet padding and clipped the text in every chip.
+    sample = (
+        "CPU: AMD Ryzen 7 5700X 3D 8-Core Processor  |  "
+        "GPU: NVIDIA GeForce RTX 4060 Ti  |  "
+        "RAM: 31.9 GB  |  "
+        "Display: 3840x2160@59Hz / 1920x1080@280Hz"
+    )
+    sample_bar = build_system_chip_bar(sample)
+    sample_bar.resize(520, max(1, sample_bar.heightForWidth(520)))
+    sample_values = []
+    for i in range(sample_bar.layout().count()):
+        chip = sample_bar.layout().itemAt(i).widget()
+        if isinstance(chip, SystemChip):
+            sample_values.append(chip.value_text())
+            assert "..." not in chip.value_text()
+    assert "AMD Ryzen 7 5700X 3D 8-Core Processor" in sample_values
+    assert "NVIDIA GeForce RTX 4060 Ti" in sample_values
+    assert "31.9 GB" in sample_values
+    assert "3840x2160@59Hz / 1920x1080@280Hz" in sample_values
+
     bar = mw._monitor_view._sys_info_bar
+    assert bar.layout().hasHeightForWidth(), "system rows grow with wrapped values"
     for i in range(bar.layout().count()):
         chip = bar.layout().itemAt(i).widget()
         if not isinstance(chip, SystemChip):
             continue
-        margins = chip.contentsMargins()
-        needed = QFontMetrics(chip.font()).height() + margins.top() + margins.bottom()
+        assert chip.text() == chip.toolTip(), "live row must show its full value"
+        assert "..." not in chip.text()
+        assert chip.value_text(), "value cell is empty"
+        needed = QFontMetrics(chip.font()).height()
         assert chip.sizeHint().height() >= needed, (
-            f"chip {chip.toolTip()[:20]!r} would clip its text"
+            f"row {chip.toolTip()[:20]!r} would clip its text"
         )
 
     # Native title-bar theming must be a safe no-op everywhere (offscreen, too).
@@ -71,6 +104,24 @@ def run():
     assert mw._monitor_view.is_visibility_panel_expanded(), (
         "chart visibility part should be expanded by default"
     )
+    assert mw._monitor_view.is_system_info_expanded(), (
+        "system info part should be expanded by default"
+    )
+    assert not mw._monitor_view._sys_info_bar.isHidden(), "chips visible when expanded"
+    sys_panel = mw._monitor_view._sys_info_panel
+    vis_panel = mw._monitor_view._vis_panel
+    assert isinstance(sys_panel, CollapsibleSection), "system info must reuse CollapsibleSection"
+    assert isinstance(vis_panel, CollapsibleSection), "charts panel must reuse CollapsibleSection"
+    mw._monitor_view.set_system_info_expanded(False)
+    assert not mw._monitor_view.is_system_info_expanded(), "system info collapse"
+    assert mw._monitor_view._sys_info_bar.isHidden(), "chips hidden when collapsed"
+    assert not sys_panel.isHidden(), "collapse must keep the section"
+    assert not sys_panel._title.isHidden(), "collapse must keep the header title"
+    assert not sys_panel._toggle.isHidden(), "collapse must keep the chevron"
+    assert sys_panel.heightForWidth(600) >= 16, "collapsed header must keep a height"
+    mw._monitor_view.set_system_info_expanded(True)
+    assert mw._monitor_view.is_system_info_expanded(), "system info expand"
+    assert not mw._monitor_view._sys_info_bar.isHidden(), "chips return when expanded"
     assert mw._charts_panel_action.isChecked(), "View menu panel toggle sync"
     mw._monitor_view.toggle_visibility_panel()
     assert not mw._monitor_view.is_visibility_panel_expanded(), "panel toggle collapse"

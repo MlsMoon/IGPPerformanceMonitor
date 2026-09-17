@@ -17,6 +17,8 @@ TRANSLATIONS: dict[str, str] = {
 
     # main_window.py
     "window_title": "IGP 性能监控器",
+    "window_title_dev": "{}  [开发模式]",
+    "dev_badge": "开发模式",
     "status_ready": "就绪",
     "status_ready_hint": "就绪 — 添加进程后点击开始",
     "status_capturing": "采集中... {} 帧 | {:.0f} 秒",
@@ -95,6 +97,7 @@ TRANSLATIONS: dict[str, str] = {
     "label_core": "核心",
     "charts_panel": "显示 / 隐藏图表",
     "menu_charts_panel": "图表面板",
+    "system_info_panel": "系统信息",
 
     # csv_export.py
     "export_title": "导出到 CSV",

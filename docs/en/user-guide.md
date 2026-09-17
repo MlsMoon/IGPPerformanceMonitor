@@ -34,9 +34,13 @@ The app uses [Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1
 
 ## 2. Install and first launch
 
+### Installer
+
 1. Download `IGPPerformanceMonitor-Setup-x.y.z.exe` from [Releases](https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest).
 2. Run the installer (UAC prompt). It writes to Program Files and adds a Start Menu shortcut.
 3. Launch **IGP Performance Monitor**. Approve UAC if asked.
+
+### Portable EXE
 
 Portable option: run `IGPPerformanceMonitor.exe` from any folder. Right-click → **Run as administrator** if Windows does not elevate automatically.
 
@@ -62,6 +66,8 @@ If the session ends with zero frames, the app warns you: the name may be wrong, 
 
 ## 4. Main window
 
+### Layout
+
 | Area | What it does |
 |---|---|
 | Left panel | Search, available processes, monitored list, Start / Stop, auto-stop timer |
@@ -69,7 +75,7 @@ If the session ends with zero frames, the app warns you: the name may be wrong, 
 | Charts grid | One card per metric. FPS spans the first row when visible. |
 | Status bar | Ready / capturing / errors, plus frame count and elapsed time |
 
-Menus:
+### Menus
 
 - **File** — Start/Stop capture, Import CSV, Export CSV
 - **View** — Per-chart visibility, charts panel, dark mode, always on top, overlay show/hide, click-through
@@ -97,6 +103,8 @@ Live FPS **charts** apply a light EMA so unlocked-FPS titles do not flicker. **C
 
 ## 6. Charts
 
+### Chart list
+
 | Chart | What you see |
 |---|---|
 | FPS | Per-app frame rate (EMA on screen) |
@@ -112,6 +120,8 @@ Live FPS **charts** apply a light EMA so unlocked-FPS titles do not flicker. **C
 | GPU Temp | GPU temperature (°C) |
 | VRAM % | System VRAM used |
 
+### Show or hide
+
 Show or hide a chart from:
 
 - **View → Charts**
@@ -126,9 +136,13 @@ Missing samples are gaps (`None`), never a fake `-1`.
 
 ## 7. Overlay
 
+### What it shows
+
 Capture starts one always-on-top overlay per monitored app. It parks near the top-left of that app’s main window and follows it (~30 fps). Minimized targets hide the overlay.
 
 Each overlay shows: app name, FPS (EMA), frame time, app memory, app CPU (and cores used), app GPU, system VRAM %, system CPU.
+
+### Overlay controls
 
 | Action | How |
 |---|---|
@@ -176,11 +190,16 @@ Use this to review a previous session or a headless capture without running Pres
 
 ## 11. Updates and rollback
 
+### Check for updates
+
 Available only in the **packaged EXE**, not when you run from source.
 
 - Shortly after launch the app checks `app_manifest.json` on the latest GitHub Release.
 - **Help → Check for Updates…** does the same check on demand.
 - Downloads are SHA256-verified, then `auto_updater.exe` swaps the EXE and restarts.
+
+### Rollback
+
 - **Help → Version History** can roll back to the previous published version if one is stored.
 
 Dev mode shows a message that self-update is disabled. That is expected.
@@ -229,17 +248,23 @@ These documentation folders (`zh-TW`, `ja`) do not change the UI.
 
 No window. Same capture pipeline, writes CSV.
 
+### From the installer
+
 From a packaged install:
 
 ```bat
 IGPPerformanceMonitor.exe --headless --process-name game.exe --timed 30 -o C:\captures\run.csv
 ```
 
+### From source
+
 From source (prefer the helper so UAC still writes `temp\`):
 
 ```bat
 Scripts\capture_debug.bat --process-name Unity.exe --timed 10
 ```
+
+### Arguments
 
 | Argument | Meaning |
 |---|---|

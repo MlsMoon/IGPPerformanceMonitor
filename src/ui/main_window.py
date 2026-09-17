@@ -15,7 +15,7 @@ from src.i18n import tr
 from src.models import SessionConfig
 from src.core.capture_session import CaptureSession
 from src.core.csv_importer import import_file
-from src.core.app_info import APP_VERSION, APP_BUILD, GITHUB_REPO_URL
+from src.core.app_info import APP_VERSION, APP_BUILD, GITHUB_REPO_URL, is_dev_mode
 from src.core.app_update_service import AppUpdateService
 from src.ui.panels.process_panel import ProcessPanel
 from src.ui.chart_base import CHART_REGISTRY
@@ -48,7 +48,8 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(tr("window_title"))
+        self._dev_badge: QLabel | None = None
+        self._apply_window_title()
         self.setMinimumSize(1000, 680)
 
         # App icon
@@ -129,12 +130,34 @@ class MainWindow(QMainWindow):
         side.setMinimumWidth(300)
         return side
 
+    def _apply_window_title(self):
+        if is_dev_mode():
+            self.setWindowTitle(tr("window_title_dev", tr("window_title")))
+        else:
+            self.setWindowTitle(tr("window_title"))
+
+    def _apply_dev_badge_style(self):
+        if self._dev_badge is None:
+            return
+        t = theme.current_theme()
+        fg = t.window_bg if t.is_dark else t.text_primary
+        self._dev_badge.setStyleSheet(
+            f"QLabel#DevModeBadge {{ background-color: {t.warn}; color: {fg};"
+            f" font-weight: 700; font-size: 9pt; padding: 2px 8px;"
+            f" border-radius: {theme.RADIUS_CHIP}px; }}"
+        )
+
     def _build_status_bar(self) -> QStatusBar:
         # Window chrome is themed via the global QApplication stylesheet
         # (theme.apply_app_qss); no widget-level stylesheet here.
         self._status_bar = QStatusBar()
         self._status_bar.setSizeGripEnabled(True)
         self._status_bar.showMessage(tr("status_ready"))
+        if is_dev_mode():
+            self._dev_badge = QLabel(tr("dev_badge"))
+            self._dev_badge.setObjectName("DevModeBadge")
+            self._apply_dev_badge_style()
+            self._status_bar.addPermanentWidget(self._dev_badge)
         return self._status_bar
 
     # ------------------------------------------------------------------
@@ -384,6 +407,7 @@ class MainWindow(QMainWindow):
         """Re-apply global QSS and re-sync the toggle after a theme switch."""
         theme.apply_app_qss()
         self._status_label.setStyleSheet(self._status_label_qss())
+        self._apply_dev_badge_style()
         # Re-sync the checkbox without re-emitting toggled (avoids feedback loop).
         self._dark_action.blockSignals(True)
         self._dark_action.setChecked(theme.current_theme().is_dark)

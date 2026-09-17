@@ -34,6 +34,8 @@ CaptureSession owns DataStore + wrapper + sampler for GUI and headless
 | Capture / sampling / psutil / NVML / PresentMon parse | `modules/02-capture.md` |
 | FrameData / fields / snapshots / history / stats | `modules/03-storage.md` |
 | Live charts / ChartCard / overlay / process panel / theme / window chrome | `modules/04-live-ui.md` |
+
+**UI reuse:** a second copy of an existing chrome (collapsible header, chip bar, dialog nav) is a bug. Extend the shared widget. Collapsible panels go through `CollapsibleSection` — see `04-live-ui.md`.
 | CSV export/import / offline analysis / changelog | `modules/05-dialogs.md` |
 | Version / self-update / auto_updater / GitHub Releases | `modules/06-version-update.md` |
 | UI strings / translation | `modules/07-i18n.md` |

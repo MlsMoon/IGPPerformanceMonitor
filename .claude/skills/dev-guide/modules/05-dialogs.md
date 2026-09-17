@@ -7,8 +7,8 @@
 - `src/ui/dialogs/csv_analysis_dialog.py` — offline analysis view
 - `src/core/csv_importer.py` — `import_file`, encoding fallback
 - `src/ui/dialogs/changelog_dialog.py` — renders `CHANGELOG.md` (`## X.Y.Z` blocks)
-- `src/core/user_manual.py` — `docs/` paths, locale folder, safe markdown href resolve
-- `src/ui/dialogs/user_manual.py` — Help → User Manual (`user-guide` + troubleshooting)
+- `src/core/user_manual.py` — `docs/` paths, locale folder, heading outline, safe markdown href resolve
+- `src/ui/dialogs/user_manual.py` — Help → User Manual (tree of pages + H2/H3…, themed links)
 - `src/ui/dialogs/shortcuts_dialog.py` — shortcut table; keep in sync with `main_window._init_ui()`
 
 ## Responsibilities
@@ -27,6 +27,8 @@ Export CSV (GUI + headless), import for offline analysis, show changelog and the
 - **Imported FPS:** keep the CSV `FPS` column when present; otherwise derive from frame time.
 - **Changelog path:** `resource_root()/CHANGELOG.md` (frozen = `_MEIPASS`).
 - **User manual path:** `resource_root()/docs/<locale>/`. UI `zh_CN` → `zh-CN`, everything else → `en`. `resolve_doc_href` must stay inside `docs/` (no `..` escape). Bundle the whole `docs/` tree (`--add-data docs;docs`); do not ship only one language.
+- **Manual nav is a heading tree**, not a flat list. `page_outline` walks ATX headings, skips the document H1 and Contents/目录/目錄/目次. The dialog hides that TOC plus the language-switcher row (`prepare_in_app_markdown`) because the tree already has the structure. Add `###` (and deeper) under the user-guide H2s so the tree can nest.
+- **Manual links are theme text**, never Qt's default `#0000FF` and not accent blue. Set `QPalette.Link` / `LinkVisited` and the document stylesheet to `text_secondary` / `text_muted`.
 
 ## Checklist
 

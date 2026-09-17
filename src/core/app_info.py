@@ -34,6 +34,11 @@ def github_latest_manifest_url(
 DEFAULT_APP_MANIFEST_URL = github_latest_manifest_url()
 
 
+def is_dev_mode() -> bool:
+    """True when running from source, not the packaged EXE."""
+    return not getattr(sys, "frozen", False)
+
+
 def resource_root() -> Path:
     """Resource root: PyInstaller _MEIPASS when frozen, else project root."""
     if getattr(sys, "frozen", False):
