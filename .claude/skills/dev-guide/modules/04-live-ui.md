@@ -44,6 +44,8 @@ Live FPS/CPU/GPU/Mem/VRAM charts + stats + overlay; instant dark/light switch.
 - **FPS EMA is render-only.** CSV stays raw.
 - **`_prepare_series` skips `None` explicitly.**
 - **One overlay per app** (`MainWindow._overlays`). Cached HWND, ~30fps poll, hide on minimize, `shutdown` on close. Copy through `tr()`. Click-through = `WA_TransparentForMouseEvents` (then the overlay context menu is unreachable — View menu is the fallback). F9 sets `set_suppressed`.
+- **Never hide an overlay with bare `hide()`.** `_update_position` calls `show()` every 33ms for as long as the target window is on screen, so the overlay bounces straight back. Visibility is gated by `_suppressed` (F9) and `_capture_active`; `set_capture_active(False)` stops both timers *and* hides, which is the only thing that sticks.
+- **Overlay teardown belongs in `_on_state_changed(False)`, not `_stop_capture`.** The wrapper emits `state_changed(False)` from a `finally`, so it covers the Stop button, `--timed` auto-stop, the target exiting, and a failed launch; `_stop_capture` only covers the button. The *start* direction stays in `_start_capture`, which knows the currently configured apps — `_overlays` also holds entries from earlier sessions, and reactivating those resurrects stale overlays.
 - **Stats list configured apps**, not only apps that presented. Idle apps are dimmed + "no frames".
 - **ProcessPanel search:** debounce (~250ms) + `setUpdatesEnabled(False)`. Do not filter on every `textChanged` (Windows `QListWidget` relayouts per item).
 - **List selection color:** do **not** rely on `selection-background-color` alone (Qt drops it without keyboard focus) or `QPalette::Highlight` (app QSS overrides it). Use `QListWidget::item:selected` **and** `::item:selected:!active` with `t.selection` / `t.selection_text`.
@@ -58,6 +60,7 @@ Live FPS/CPU/GPU/Mem/VRAM charts + stats + overlay; instant dark/light switch.
 - [ ] Colors → theme tokens; radii → `RADIUS_*`; new widgets re-theme in `apply_theme`
 - [ ] New animation → goes through `motion`, is a micro-interaction (not an entrance), and moves colour/opacity rather than layout
 - [ ] Overlay → cached HWND, minimize hide, `shutdown`, `from src.i18n import tr`
+- [ ] Overlay visibility → driven by `set_capture_active` / `set_suppressed`, never a bare `hide()`
 - [ ] Series → DataStore history keyed by `frame.application`
 
 ---

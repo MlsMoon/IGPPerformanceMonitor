@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Help → User Manual opens the bundled guide (and troubleshooting) for the current UI language. The same `docs/` tree is packed into the portable EXE and the installer.
+- Stopping a capture now really dismisses the overlays. The follow timer used to call `show()` every 33ms, so a Stop (or auto-stop / process exit) left the last FPS frozen on screen.
 
 ## 0.1.1
 

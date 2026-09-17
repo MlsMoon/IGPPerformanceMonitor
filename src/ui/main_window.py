@@ -268,7 +268,7 @@ class MainWindow(QMainWindow):
 
         # One overlay per configured app (position follows each app's window).
         for name in proc_names:
-            self._ensure_overlay(name).show()
+            self._ensure_overlay(name).set_capture_active(True)
 
     def _ensure_overlay(self, name: str) -> OverlayWindow:
         """Get (creating if needed) the overlay for an app name."""
@@ -284,8 +284,6 @@ class MainWindow(QMainWindow):
     def _stop_capture(self):
         self._session.stop(wait_ms=2000)
         frames = self._data_store.get_frame_count()
-        for ov in self._overlays.values():
-            ov.hide()
         self._status_bar.showMessage(tr("status_capture_stopped"))
         if frames == 0:
             QMessageBox.warning(
@@ -310,8 +308,18 @@ class MainWindow(QMainWindow):
         self._monitor_view.set_capture_active(running)
         if running:
             self._status_bar.showMessage(tr("status_capture_running"))
-        else:
-            self._status_bar.showMessage(tr("status_capture_stopped"))
+            return
+        # Every way a capture ends arrives here — the Stop button, the auto-stop
+        # timer, the target process exiting, PresentMon failing to launch — so
+        # this is the one place that can reliably retire the overlays. Doing it
+        # in _stop_capture only covered the button.
+        #
+        # Only the stop direction belongs here: _overlays keeps entries from
+        # earlier sessions, and starting is _start_capture's call because it
+        # knows which apps are actually configured now.
+        for ov in self._overlays.values():
+            ov.set_capture_active(False)
+        self._status_bar.showMessage(tr("status_capture_stopped"))
 
     def _on_status(self, msg: str):
         self._status_bar.showMessage(msg)

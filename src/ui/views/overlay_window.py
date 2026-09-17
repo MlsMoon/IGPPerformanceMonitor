@@ -23,6 +23,10 @@ _OFFSET_Y = 8
 # EMA factor for smoothing the displayed FPS (uncapped-frame apps jump wildly)
 _FPS_EMA_ALPHA = 0.3
 
+# Position follow (~30fps) and the much cheaper display refresh.
+_POS_INTERVAL_MS = 33
+_DISPLAY_INTERVAL_MS = 250
+
 
 def find_main_window(pid: int) -> int | None:
     """Find the main (largest non-tool) top-level window for a PID.
@@ -85,6 +89,7 @@ class OverlayWindow(QWidget):
         self._fps_ema: float | None = None
         self._shutting_down = False
         self._suppressed = False       # master hide (F9) — _update_position skips show
+        self._capture_active = False   # no capture yet, so nothing to display
         self._title_font = QFont("Segoe UI", 9, QFont.Bold)
         self._data_font = QFont("Consolas", 10)
 
@@ -92,15 +97,14 @@ class OverlayWindow(QWidget):
 
         # Fast position-follow timer (~30fps). Cached HWND means we usually
         # only call GetWindowRect; EnumWindows runs only when the HWND is stale.
+        # Both timers stay idle until a capture starts (see set_capture_active).
         self._pos_timer = QTimer(self)
         self._pos_timer.timeout.connect(self._update_position)
-        self._pos_timer.start(33)
 
         # Display refresh timer (decoupled from frame rate). update_frame only
         # stores data + updates FPS EMA; this timer does the (expensive) setText.
         self._display_timer = QTimer(self)
         self._display_timer.timeout.connect(self._refresh_display)
-        self._display_timer.start(250)
 
         self.setMinimumWidth(240)
 
@@ -122,12 +126,37 @@ class OverlayWindow(QWidget):
         """When enabled, mouse events pass through the overlay to the app below."""
         self.setAttribute(Qt.WA_TransparentForMouseEvents, enabled)
 
+    def set_capture_active(self, active: bool):
+        """Follow the capture state; stopping retires the overlay.
+
+        Hiding alone does not stick: the position timer calls ``show()`` every
+        33ms for as long as the target window is on screen, so a stopped capture
+        used to leave the overlay up with the last frame's numbers frozen on it.
+        The timers have to stop with the capture.
+        """
+        if self._shutting_down:
+            return
+        self._capture_active = active
+        if not active:
+            self._pos_timer.stop()
+            self._display_timer.stop()
+            self.hide()
+            return
+        if not self._pos_timer.isActive():
+            self._pos_timer.start(_POS_INTERVAL_MS)
+        if not self._display_timer.isActive():
+            self._display_timer.start(_DISPLAY_INTERVAL_MS)
+        if not self._suppressed:
+            self.show()
+
     def set_suppressed(self, suppressed: bool):
         """Master hide toggle (F9). Suppressed overlays stay hidden and are not
         re-shown by the position-follow timer."""
         self._suppressed = suppressed
         if suppressed:
             self.hide()
+        elif self._capture_active:
+            self.show()
 
     def _init_ui(self):
         self._layout = QVBoxLayout(self)
@@ -247,7 +276,7 @@ class OverlayWindow(QWidget):
 
     def _update_position(self):
         """Follow this app's main window; hide when minimized/absent/no frame yet."""
-        if self._shutting_down or self._suppressed:
+        if self._shutting_down or self._suppressed or not self._capture_active:
             return
         pid = self._pid
         if not pid:
@@ -274,6 +303,7 @@ class OverlayWindow(QWidget):
     def shutdown(self):
         """Stop timers and remove the top-level overlay during app shutdown."""
         self._shutting_down = True
+        self._capture_active = False
         if self._pos_timer.isActive():
             self._pos_timer.stop()
         if self._display_timer.isActive():
