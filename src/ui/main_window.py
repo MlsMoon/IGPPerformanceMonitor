@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt, QTimer, QByteArray, QUrl
 from PyQt5.QtGui import QDesktopServices, QIcon, QKeySequence
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QStatusBar, QAction, QMessageBox,
+    QStatusBar, QAction, QMessageBox, QDialog,
     QSplitter, QLabel, QMenuBar, QFileDialog,
 )
 
@@ -26,6 +26,7 @@ from src.ui.dialogs.csv_analysis_dialog import CsvAnalysisDialog
 from src.core import app_config
 from src.ui.dialogs.changelog_dialog import ChangelogDialog
 from src.ui.dialogs.shortcuts_dialog import ShortcutsDialog
+from src.ui.dialogs.update_progress import UpdateProgressDialog
 from src.ui import theme, win_chrome
 import logging
 
@@ -492,27 +493,32 @@ class MainWindow(QMainWindow):
             self._status_bar.showMessage(tr("status_ready"))
             return
 
-        # Install
-        try:
-            manifest = result.remote_manifest
-            if manifest is None:
-                raise RuntimeError("No manifest available")
-            install_result = service.install_update(
-                manifest,
-                progress=lambda msg: self._status_bar.showMessage(
-                    tr("update_progress", msg)
-                ),
-            )
-            if install_result.should_exit:
-                self._status_bar.showMessage(tr("update_installing"))
-                self.close()
-        except Exception as e:
-            logger.exception("Update install failed")
+        manifest = result.remote_manifest
+        if manifest is None:
             QMessageBox.critical(
                 self, tr("update_check_title"),
-                tr("update_install_failed", str(e)),
+                tr("update_install_failed", "No manifest available"),
             )
             self._status_bar.showMessage(tr("status_ready"))
+            return
+        self._run_install(service, manifest, tr("update_check_title"))
+
+    def _run_install(self, service: AppUpdateService, manifest: dict, title: str):
+        """Download + install behind a progress dialog, then restart on success."""
+        dialog = UpdateProgressDialog(service, manifest, title, self)
+        accepted = dialog.exec_() == QDialog.Accepted
+
+        if not accepted:
+            if dialog.error:
+                logger.error("Update install failed: %s", dialog.error)
+                QMessageBox.critical(
+                    self, title, tr("update_install_failed", dialog.error))
+            self._status_bar.showMessage(tr("status_ready"))
+            return
+
+        if dialog.result is not None and dialog.result.should_exit:
+            self._status_bar.showMessage(tr("update_installing"))
+            self.close()
 
     def _open_github(self):
         """Open the public repository in the default browser."""
@@ -563,20 +569,7 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.Yes:
             self._status_bar.showMessage(tr("status_ready"))
             return
-        try:
-            result = service.install_update(
-                previous,
-                progress=lambda msg: self._status_bar.showMessage(
-                    tr("rollback_progress", msg)),
-            )
-            if result.should_exit:
-                self._status_bar.showMessage(tr("update_installing"))
-                self.close()
-        except Exception as e:
-            logger.exception("Rollback install failed")
-            QMessageBox.critical(
-                self, tr("rollback_title"), tr("update_install_failed", str(e)))
-            self._status_bar.showMessage(tr("status_ready"))
+        self._run_install(service, previous, tr("rollback_title"))
 
     def showEvent(self, event):
         # Toggling always-on-top recreates the native window, which drops the

@@ -22,11 +22,45 @@ try:
 except ImportError:
     from urllib.error import HTTPError, URLError  # type: ignore[no-redef]
 
-ProgressCallback = Callable[[str], None]
+_CHUNK_BYTES = 256 * 1024
+
+#: Stage identifiers reported through :class:`UpdateProgress`.
+STAGE_APP = "app"
+STAGE_UPDATER = "updater"
+STAGE_VERIFY = "verify"
+STAGE_INSTALL = "install"
+
+
+@dataclass(frozen=True)
+class UpdateProgress:
+    """One tick of install progress.
+
+    ``total`` is 0 when the size is unknown (no ``Content-Length``), which the
+    UI should show as an indeterminate bar rather than as 0%.
+    """
+
+    stage: str
+    received: int = 0
+    total: int = 0
+
+    @property
+    def fraction(self) -> float:
+        """0..1, or -1 when the total is unknown."""
+        if self.total <= 0:
+            return -1.0
+        return min(1.0, self.received / self.total)
+
+
+ProgressCallback = Callable[[UpdateProgress], None]
+CancelCheck = Callable[[], bool]
 
 
 class AppUpdateError(RuntimeError):
     pass
+
+
+class AppUpdateCancelled(RuntimeError):
+    """The caller asked to stop; partial downloads have been cleaned up."""
 
 
 @dataclass(frozen=True)
@@ -45,6 +79,20 @@ class AppUpdateInstallResult:
     message: str
     target_version: str
     should_exit: bool = False
+
+
+def _check_cancelled(is_cancelled: CancelCheck | None) -> None:
+    if is_cancelled is not None and is_cancelled():
+        raise AppUpdateCancelled("Update cancelled.")
+
+
+def _discard(path: Path) -> None:
+    """Best-effort removal of a partial download."""
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        pass
 
 
 def _app_data_dir() -> Path:
@@ -148,8 +196,18 @@ class AppUpdateService:
         )
 
     def install_update(
-        self, manifest: dict, progress: ProgressCallback | None = None
+        self,
+        manifest: dict,
+        progress: ProgressCallback | None = None,
+        is_cancelled: CancelCheck | None = None,
     ) -> AppUpdateInstallResult:
+        """Download, verify and hand off to the updater.
+
+        Blocking and slow (tens of MB), so callers should run this off the GUI
+        thread and drive a progress bar from *progress*. Passing *is_cancelled*
+        lets the user abort between chunks; that raises
+        :class:`AppUpdateCancelled` after removing the partial download.
+        """
         self.ensure_dirs()
         if not self.can_self_update():
             raise AppUpdateError("Self-update only works in packaged EXE.")
@@ -162,18 +220,20 @@ class AppUpdateService:
         version = str(manifest["version"])
 
         main_path = self.temp_dir / f"IGPPerformanceMonitor-{version}.exe"
-        self._emit(progress, "Downloading...")
-        self._download(str(manifest["mainExeUrl"]), main_path)
-        self._emit(progress, "Verifying...")
-        self._verify(main_path, int(manifest["mainExeSize"]), str(manifest["mainExeSha256"]))
+        self._download(str(manifest["mainExeUrl"]), main_path,
+                       progress, STAGE_APP, is_cancelled)
+        self._verify(main_path, int(manifest["mainExeSize"]),
+                     str(manifest["mainExeSha256"]), progress, is_cancelled)
 
         updater_path = self.temp_dir / f"auto_updater-{version}.exe"
-        self._emit(progress, "Downloading updater...")
-        self._download(str(manifest["updaterExeUrl"]), updater_path)
+        self._download(str(manifest["updaterExeUrl"]), updater_path,
+                       progress, STAGE_UPDATER, is_cancelled)
         self._verify(
             updater_path,
             int(manifest["updaterExeSize"]),
             str(manifest["updaterExeSha256"]),
+            progress,
+            is_cancelled,
         )
 
         self.updater_path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,7 +254,7 @@ class AppUpdateService:
             "--log-path", str(self.log_path),
             "--restart", "true",
         ]
-        self._emit(progress, "Installing...")
+        self._emit(progress, UpdateProgress(STAGE_INSTALL))
         subprocess.Popen(cmd, close_fds=True)
 
         return AppUpdateInstallResult(
@@ -212,38 +272,76 @@ class AppUpdateService:
             raise AppUpdateError(f"Missing fields: {missing}")
         return dict(m)
 
-    def _download(self, url: str, dest: Path) -> None:
+    def _download(
+        self,
+        url: str,
+        dest: Path,
+        progress: ProgressCallback | None = None,
+        stage: str = STAGE_APP,
+        is_cancelled: CancelCheck | None = None,
+    ) -> None:
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             dest.unlink()
         try:
             with open_url(url, timeout=120) as resp, dest.open("wb") as out:
+                # GitHub redirects release assets to a CDN that does send a
+                # length, but treat a missing one as "unknown" rather than 0.
+                total = int(resp.headers.get("Content-Length") or 0)
+                received = 0
+                self._emit(progress, UpdateProgress(stage, 0, total))
                 while True:
-                    chunk = resp.read(256 * 1024)
+                    _check_cancelled(is_cancelled)
+                    chunk = resp.read(_CHUNK_BYTES)
                     if not chunk:
                         break
                     out.write(chunk)
+                    received += len(chunk)
+                    self._emit(progress, UpdateProgress(stage, received, total))
+        except AppUpdateCancelled:
+            # Outside the `with`, so the handle is closed — Windows refuses to
+            # unlink a file that is still open.
+            _discard(dest)
+            raise
         except HTTPError as e:
             raise AppUpdateError(f"Download HTTP {e.code}") from e
         except URLError as e:
             raise AppUpdateError(f"Download failed: {e.reason}") from e
 
-    def _verify(self, path: Path, size: int, sha256: str) -> None:
+    def _verify(
+        self,
+        path: Path,
+        size: int,
+        sha256: str,
+        progress: ProgressCallback | None = None,
+        is_cancelled: CancelCheck | None = None,
+    ) -> None:
         if not path.exists():
             raise AppUpdateError("Download missing.")
         actual_size = path.stat().st_size
         if actual_size != size:
             raise AppUpdateError(f"Size mismatch: expected {size}, got {actual_size}.")
+        # Hashing tens of MB is slow enough to look like a hang on its own.
         h = hashlib.sha256()
-        with path.open("rb") as f:
-            while True:
-                chunk = f.read(256 * 1024)
-                if not chunk:
-                    break
-                h.update(chunk)
+        read = 0
+        self._emit(progress, UpdateProgress(STAGE_VERIFY, 0, actual_size))
+        try:
+            with path.open("rb") as f:
+                while True:
+                    _check_cancelled(is_cancelled)
+                    chunk = f.read(_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+                    read += len(chunk)
+                    self._emit(progress,
+                               UpdateProgress(STAGE_VERIFY, read, actual_size))
+        except AppUpdateCancelled:
+            _discard(path)
+            raise
         if h.hexdigest().lower() != sha256.lower():
             raise AppUpdateError("SHA256 mismatch.")
 
-    def _emit(self, cb: ProgressCallback | None, msg: str) -> None:
+    def _emit(self, cb: ProgressCallback | None, progress: UpdateProgress) -> None:
         if cb:
-            cb(msg)
+            cb(progress)

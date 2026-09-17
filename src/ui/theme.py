@@ -376,6 +376,14 @@ def app_qss(t: Theme = None) -> str:
         QScrollBar::handle:horizontal:hover {{ background: {t.text_secondary}; }}
         QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
         QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+        /* Flat progress: a track and a fill, no groove bevel or chunk gaps. */
+        QProgressBar {{
+            background: {t.input_bg}; border: none;
+            border-radius: {RADIUS_CHIP}px; height: 6px;
+        }}
+        QProgressBar::chunk {{
+            background: {t.accent[0]}; border-radius: {RADIUS_CHIP}px;
+        }}
         QSplitter::handle {{ background: transparent; }}
         QSplitter::handle:horizontal {{ width: 8px; }}
         QSplitter::handle:vertical {{ height: 8px; }}

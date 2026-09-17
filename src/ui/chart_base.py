@@ -169,9 +169,17 @@ class SystemChip(QLabel):
     name used to push the whole window's minimum width past 1100 px. This keeps
     the natural width as the size hint but lets the chip shrink and elide, with
     the full value on the tooltip.
+
+    Only the *width* is ours to decide. The height comes from QLabel, which adds
+    the stylesheet's padding (Qt resolves padding into the contents margins);
+    computing it from font metrics alone cost 8px and clipped every chip.
     """
 
     _MIN_WIDTH = 56
+    # QFontMetrics advances are a hair narrower than what the glyphs actually
+    # paint (hinting, subpixel positioning). Sized to the advance exactly, the
+    # final character loses a column of pixels and reads as a hard cut.
+    _SLACK = 2
 
     def __init__(self, text: str, parent=None):
         super().__init__(parent)
@@ -180,17 +188,24 @@ class SystemChip(QLabel):
         self.setToolTip(text)
         self._apply_elide()
 
+    def _padding(self) -> tuple[int, int]:
+        m = self.contentsMargins()
+        return m.left() + m.right(), m.top() + m.bottom()
+
     def _apply_elide(self) -> None:
         metrics = QFontMetrics(self.font())
-        width = max(self._MIN_WIDTH, self.width())
+        horizontal, _ = self._padding()
+        width = max(self._MIN_WIDTH, self.width() - horizontal - self._SLACK)
         super().setText(metrics.elidedText(self._full_text, Qt.ElideRight, width))
 
     def sizeHint(self) -> QSize:
-        metrics = QFontMetrics(self.font())
-        return QSize(metrics.horizontalAdvance(self._full_text) + 4, metrics.height())
+        horizontal, _ = self._padding()
+        natural = QFontMetrics(self.font()).horizontalAdvance(self._full_text)
+        return QSize(natural + horizontal + self._SLACK, super().sizeHint().height())
 
     def minimumSizeHint(self) -> QSize:
-        return QSize(self._MIN_WIDTH, QFontMetrics(self.font()).height())
+        horizontal, _ = self._padding()
+        return QSize(self._MIN_WIDTH + horizontal, super().sizeHint().height())
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

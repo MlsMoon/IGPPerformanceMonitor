@@ -5,6 +5,7 @@
 - `src/core/app_info.py` — `VERSION` (semver single source), `APP_BUILD`, `parse_version`, `GITHUB_*`, `DEFAULT_APP_MANIFEST_URL`, `github_asset_url`
 - `src/core/release_manifest.py` — build / write / fetch `app_manifest.json` (UTF-8, no BOM, User-Agent)
 - `src/core/app_update_service.py` — fetch latest GitHub Release manifest, compare, download, verify, launch updater
+- `src/ui/dialogs/update_progress.py` — `UpdateProgressDialog` + the worker thread the install runs on
 - `src/auto_updater/*` — standalone swapper (wait for parent → replace exe → restart)
 - `Scripts/generate_manifest.py` — local/CI helper after `build.bat` / installer
 
@@ -32,6 +33,9 @@ Version numbers, and check / download / install updates **only** from GitHub Rel
 - **Updater flow:** download main + updater, verify size/sha256, copy updater to `%APPDATA%/IGPPerformanceMonitor/auto_updater.exe`, start it, exit. Updater waits, backups, replaces, writes `app_state.json`, restarts.
 - **Startup check** is packaged-only, delayed 1.5s, silent unless an update exists.
 - **Dev never self-updates.**
+- **`install_update` must not run on the GUI thread.** It is ~55 MB over the network; inline it froze the window for the whole download behind a status-bar string. Both entry points (update and rollback) go through `MainWindow._run_install` → `UpdateProgressDialog`, which runs the install on a `QThread` and drives a real bar.
+- **Progress is bytes, not strings.** `install_update(progress=...)` emits `UpdateProgress(stage, received, total)`. `total` is 0 when the server sends no `Content-Length`; show that as an indeterminate bar, never as 0%. Verification reports progress too — SHA256 over 55 MB looks like a hang on its own.
+- **Cancellation deletes the partial file outside the `with` block.** Windows refuses to unlink a file whose handle is still open, so `_download` catches `AppUpdateCancelled` after the context manager closes and only then discards.
 
 ## Checklist
 
@@ -39,6 +43,7 @@ Version numbers, and check / download / install updates **only** from GitHub Rel
 - [ ] Version compare → `parse_version`
 - [ ] Manifest → no BOM, non-empty hashes, GitHub asset URLs
 - [ ] Update flow → tested with a packaged EXE (old → new) after a real GitHub Release
+- [ ] Long-running update work → off the GUI thread, reporting bytes, cancellable
 - [ ] No credentials or alternate CDN URLs added
 
 ---

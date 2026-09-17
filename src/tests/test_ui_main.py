@@ -1,6 +1,7 @@
 """Test: ui_main — MainWindow, MonitorView construction + Crosshair callback."""
 
 from PyQt5.QtCore import QPointF
+from PyQt5.QtGui import QFontMetrics
 from PyQt5.QtWidgets import QFrame, QScrollArea
 
 from src.ui import motion, win_chrome
@@ -30,6 +31,19 @@ def run():
     long_chip = SystemChip("GPU: " + "NVIDIA GeForce RTX 4060 Ti " * 6)
     assert long_chip.minimumSizeHint().width() < 100, "system chip must stay shrinkable"
     assert long_chip.toolTip().startswith("GPU:"), "full text kept on the tooltip"
+
+    # ...but the height is QLabel's to decide. Computing it from font metrics
+    # alone dropped the stylesheet padding and clipped the text in every chip.
+    bar = mw._monitor_view._sys_info_bar
+    for i in range(bar.layout().count()):
+        chip = bar.layout().itemAt(i).widget()
+        if not isinstance(chip, SystemChip):
+            continue
+        margins = chip.contentsMargins()
+        needed = QFontMetrics(chip.font()).height() + margins.top() + margins.bottom()
+        assert chip.sizeHint().height() >= needed, (
+            f"chip {chip.toolTip()[:20]!r} would clip its text"
+        )
 
     # Native title-bar theming must be a safe no-op everywhere (offscreen, too).
     win_chrome.apply_to_widget(mw)
@@ -87,6 +101,18 @@ def run():
     assert mw._click_through_action.isChecked() is False, "click-through default off"
     from src.ui.dialogs.shortcuts_dialog import ShortcutsDialog
     assert ShortcutsDialog(mw) is not None, "ShortcutsDialog constructs"
+
+    # Update progress dialog: built without starting its worker, so this only
+    # covers how progress ticks are rendered.
+    from src.core.app_update_service import STAGE_APP, AppUpdateService, UpdateProgress
+    from src.ui.dialogs.update_progress import UpdateProgressDialog
+    dlg = UpdateProgressDialog(AppUpdateService(), {}, "Update", mw)
+    dlg._on_progress(UpdateProgress(STAGE_APP, 0, 0))
+    assert dlg._bar.maximum() == 0, "unknown size must show an indeterminate bar"
+    dlg._on_progress(UpdateProgress(STAGE_APP, 5 * 1024 * 1024, 10 * 1024 * 1024))
+    assert dlg._bar.maximum() > 0, "a known size switches to a determinate bar"
+    assert dlg._bar.value() == dlg._bar.maximum() // 2, "half downloaded is half full"
+    assert "50" in dlg._detail.text(), f"percent missing from {dlg._detail.text()!r}"
 
     mv = MonitorView(ds)
     assert mv is not None, "MonitorView"
