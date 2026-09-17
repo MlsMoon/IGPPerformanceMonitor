@@ -79,10 +79,13 @@ Tagging `vX.Y.Z` on `release` (must match `VERSION`) runs `.github/workflows/rel
 ## Tests
 
 ```bat
-python -m src.tests
+python Scripts/check.py              :: compile + import + lint
+python -m src.main -t ui             :: window + screenshots
+python -m src.main -t update         :: download / verify / cancel
+python -m src.tests                  :: i18n / CSV / manifest contracts
 ```
 
-Offscreen Qt is set automatically. See `.claude/skills/test-after-changes/SKILL.md` and `.claude/skills/test-design/SKILL.md`.
+The `capture` area needs admin: `Scripts\selfcheck.bat capture -a App.exe -s 8`. See `.claude/skills/test-after-changes/SKILL.md`.
 
 ## Repository layout
 

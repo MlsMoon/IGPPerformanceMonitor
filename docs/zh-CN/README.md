@@ -90,10 +90,13 @@ python Scripts\generate_manifest.py
 ## 测试
 
 ```bat
+python Scripts/check.py
+python -m src.main -t ui
+python -m src.main -t update
 python -m src.tests
 ```
 
-离屏 Qt 会自动设置。详见 `.claude/skills/test-after-changes/SKILL.md` 与 `.claude/skills/test-design/SKILL.md`。
+采集自检需要管理员：`Scripts\selfcheck.bat capture -a App.exe -s 8`。详见 `.claude/skills/test-after-changes/SKILL.md`。
 
 ## 贡献与安全
 

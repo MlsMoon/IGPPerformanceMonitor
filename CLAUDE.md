@@ -16,7 +16,9 @@ Before changing any `src/` module, read `.claude/skills/dev-guide/SKILL.md` and 
 
 After a **large change** (data flow, module interface, new pitfall/module), update the matching module note — that is the project's semi-automatic doc loop (skill rule + this file + Stop hook). If you change metric fields, run `verify-metrics`.
 
-**Test after coding**: follow `.claude/skills/test-after-changes/SKILL.md` (static `py_compile` / import / offscreen + real headless capture). Headless needs admin — use `Scripts\capture_debug.bat` (self-elevates, writes `temp/`). Do not run `python -m src.main --headless` from a non-admin agent (UAC relaunch drops the output).
+**Test after coding**: follow `.claude/skills/test-after-changes/SKILL.md`. Ask `python -m src.selfcheck plan` what to run — do not habitually spawn a subagent or run every `-t` area. Default is: you run `Scripts/check.py` and the areas the planner names, and you read the report. A subagent is a second pair of eyes on PNGs / unexplained SUSPECT, never the test runner. Areas are discovered from `src/selfcheck/*_area.py` (`AREA` + `run`); a new `src/` package that no area claims prints `UNCOVERED`. `src/tests/` stays three contract checks.
+
+The `capture` area needs admin — use `Scripts\selfcheck.bat capture -a App.exe -s 8` (self-elevates, tees to `temp/selfcheck/`). Do not run `python -m src.main -t capture` from a non-admin agent; the UAC relaunch drops the output. The `ui` and `update` areas need no admin.
 
 ## Skills (when to use)
 
@@ -26,7 +28,7 @@ Project **workflow** skills (required):
 |---|---|
 | `dev-guide` | Before editing `src/` |
 | `test-after-changes` | After editing `src/` |
-| `test-design` | Writing / changing `src/tests/` |
+| `test-design` | Adding any check (`src/selfcheck/` or `src/tests/`) |
 | `verify-metrics` | Any FrameData / snapshot / CSV / sampler field change |
 | `release` | Shipping a version (tag → GitHub Actions → GitHub Release) |
 
@@ -39,7 +41,7 @@ Third-party **reference** skills (PyQt5; already English):
 | QThread (`PresentMonWrapper`, sampler, overlay poll) | `pyqt-threading` |
 | signals/slots, `QTimer`, `QSettings` | `pyqt-core` |
 | Dialogs | `pyqt-dialogs` |
-| `src/tests/` / qtbot | `pyqt-testing` |
+| Self-check UI / dialogs | `pyqt-testing` (reference only; do not grow `src/tests/`) |
 | General PyQt5 | `pyqt` (hub) |
 | UI/UX audit | `qt-ui-design` |
 
@@ -53,12 +55,21 @@ Third-party **reference** skills (PyQt5; already English):
 Scripts\run_dev.bat
 python -m src.main --debug
 python -m src.main --headless --process-name Unity.exe --timed 10
+
+python -m src.selfcheck plan                   :: what to run for the current diff
+python Scripts\check.py                        :: compile + import + lint
+python -m src.main -t ui                       :: self-check: window + PNGs
+python -m src.main -t update                   :: self-check: download/verify/cancel
+Scripts\selfcheck.bat capture -a Unity.exe -s 8  :: self-check: real capture (admin)
+python -m src.tests                            :: contract checks (schema changes)
+
 Scripts\run_build.bat
 Scripts\build.bat
 Scripts\build_installer.bat
 python Scripts\generate_manifest.py
-python -m src.tests
 ```
+
+`-a` is `--process-name` (repeatable), `-s` is `--timed`. Self-check output, including screenshots, goes to `temp/selfcheck/`.
 
 **Always run as Administrator.** Elevation is handled at every entry: `main.py` relaunches via `ShellExecuteW("runas")`; `Scripts\run_dev.bat` uses `Start-Process -Verb RunAs`; the packaged EXE declares `requireAdministrator` (`--uac-admin`).
 

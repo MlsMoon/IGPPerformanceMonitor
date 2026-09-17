@@ -1,8 +1,12 @@
 """IGP Performance Monitor — entry point. Requires admin privileges.
 
 Usage:
-    python -m src.main             # normal
-    python -m src.main --debug     # write igp_debug.log
+    python -m src.main                      # normal
+    python -m src.main --debug              # write igp_debug.log
+    python -m src.main -t ui                # self-check: real window + PNGs
+    python -m src.main -t capture -a App.exe -s 8
+    python -m src.main -t all
+    python -m src.selfcheck plan            # what to run for the current diff
 """
 
 import sys
@@ -21,6 +25,7 @@ install_libpng_silence()
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
+from src import selfcheck
 from src.i18n import tr
 from src.models import SessionConfig
 from src.ui import win_chrome
@@ -198,11 +203,15 @@ def main():
                         help="headless capture to CSV (no UI)")
     parser.add_argument("--capture-debug", action="store_true",
                         help="(legacy alias for --headless)")
-    parser.add_argument("--process-name", action="append", default=[])
+    parser.add_argument("-t", "--selftest", nargs="+", metavar="AREA",
+                        help="run self-checks and report: "
+                             f"{' | '.join(selfcheck.AREAS)} | all")
+    parser.add_argument("--process-name", "-a", action="append", default=[],
+                        metavar="APP.EXE", help="target process (repeatable)")
     parser.add_argument("--process-id", action="append", type=int, default=[])
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--all-processes", action="store_true")
-    parser.add_argument("--timed", type=int, default=5,
+    parser.add_argument("--timed", "-s", type=int, default=5, metavar="SECONDS",
                         help="capture seconds (0 = continuous, Ctrl+C to stop)")
     parser.add_argument("--output", "-o", default="", help="output CSV path (headless)")
     parser.add_argument("--no-track-display", action="store_true")
@@ -212,6 +221,22 @@ def main():
 
     headless = args.headless or args.capture_debug
     setup_logging(args.debug or headless)
+
+    # Self-checks run before the admin gate: only the capture area needs
+    # PresentMon, and forcing UAC on the others would put them out of reach of
+    # an agent, which is who they are written for.
+    if args.selftest:
+        if selfcheck.needs_admin(args.selftest) and not is_admin():
+            # Exits non-zero either way: the elevated child writes its report
+            # somewhere this process cannot see, so reporting success here
+            # would let CI — and any agent — read a lost run as a passing one.
+            relaunch_as_admin()
+            print("This area needs admin and its output does not come back here.\n"
+                  "Run Scripts\\selfcheck.bat instead; it elevates and tees the\n"
+                  "report to temp/selfcheck/report.txt.", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(selfcheck.run(args.selftest, app=args.process_name,
+                               seconds=args.timed))
 
     # Admin check — must come before QApplication for main UI
     if not is_admin():

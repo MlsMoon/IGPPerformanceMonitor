@@ -2,7 +2,8 @@
 
 ## Key files
 
-- `src/main.py` — process entry; admin elevation; `--debug` / `--headless`; `run_headless_capture`
+- `src/main.py` — process entry; admin elevation; `--debug` / `--headless` / `-t`; `run_headless_capture`
+- `src/selfcheck/` — `-t` areas (auto-discovered `*_area.py`), `plan` (`python -m src.selfcheck plan`), report object
 - `src/core/capture_session.py` — `CaptureSession`; shared DataStore + wrapper + sampler lifetime
 - `src/ui/main_window.py` — menus, overlay, update check, GitHub link, Help → User Manual
 - `src/config.py` — intervals, history window, PresentMon path
@@ -14,6 +15,9 @@ Start the app (GUI or headless), guarantee admin, and let `CaptureSession` own P
 ## Pitfalls
 
 - **Three elevation paths** must stay consistent: `main.py` `relaunch_as_admin()` (`ShellExecuteW runas`), `Scripts/run_dev.bat` (`Start-Process -Verb RunAs`), EXE manifest (`--uac-admin` / `uac_admin=True`).
+- **`-t` self-checks run before the admin gate.** Only the `capture` area needs PresentMon; forcing UAC on `ui` / `update` would put them out of reach of an agent, which is who the reports are written for. If you add an area that needs admin, add it to `selfcheck._NEEDS_ADMIN`, not to the global gate.
+- **Short flags are aliases, not new options:** `-a` is `--process-name`, `-s` is `--timed`, so one spelling works for both headless capture and `-t capture`. Do not add a parallel pair.
+- **Verify with the planner, not a habit.** `python -m src.selfcheck plan` selects areas from `AREA.touches`. Do not spawn a subagent unless it says `subagent: yes`. A new `*_area.py` is picked up automatically; a new `src/<pkg>/` with no `touches` prints `UNCOVERED`.
 - **Headless uses `CaptureSession.run_blocking(config)`.** Do not hand-assemble DataStore/wrapper/sampler. Headless must start the sampler or CSV will lack system/process columns (`_enrich_frame` reads `_latest`).
 - **GUI start/stop uses `CaptureSession.start/stop`.** The window may connect `session.wrapper` signals and read `session.data_store`, but must not call `wrapper.configure` + `sampler.configure` + `start` itself.
 - **Startup update check:** `QTimer.singleShot(1500, self._auto_check_update)`; skip in dev; silent unless an update exists. Source is GitHub Releases (`DEFAULT_APP_MANIFEST_URL`).

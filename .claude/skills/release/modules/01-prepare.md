@@ -16,10 +16,11 @@ Pick the next version, write `VERSION`, add a user-facing changelog block.
 
 ```bat
 git status
+python Scripts/check.py
 python -m src.tests
 ```
 
-Working tree should be releasable. Tests must pass. If not, stop and fix.
+Working tree should be releasable. The static gate and contract checks must pass. If not, stop and fix.
 
 ### 2. Show current state
 

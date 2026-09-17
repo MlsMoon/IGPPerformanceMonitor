@@ -16,7 +16,7 @@ Four phases, **in order, without pausing for confirmation**. Report each step. O
 | Phase | What | Who | Doc |
 |---|---|---|---|
 | 1. Prepare | Version + CHANGELOG | Agent | `modules/01-prepare.md` |
-| 2. Verify | Offscreen tests (required) + headless (best-effort) | Agent | `modules/02-verify.md` |
+| 2. Verify | Static + `-t` self-checks (required) + capture (best-effort) | Agent | `modules/02-verify.md` |
 | 3. Publish git | commit + annotated tag `vX.Y.Z` + push | Agent | `modules/03-commit-tag.md` |
 | 4. GitHub Release | Actions builds and uploads assets | GitHub Actions; agent watches | `modules/04-github-release.md` |
 

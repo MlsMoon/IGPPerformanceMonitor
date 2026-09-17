@@ -8,7 +8,7 @@ No hand-written CSV, no hardcoded type/value assertions:
   exporter, re-imports via ``import_file``, and checks each field round-trips
   losslessly (relative compare — original vs imported, no hardcoded values).
 
-Skips (via SkipTest) if the real capture can't be generated (no admin/UAC).
+Skips if the real capture can't be generated (no admin/UAC).
 """
 
 import csv
@@ -20,7 +20,7 @@ from src.core.metrics_schema import (
     CSV_COLUMNS, CSV_EXPORT_HEADER_V2, frame_to_row,
 )
 from src.models import FrameData, format_display_outputs
-from src.tests._factory import load_real_frames, load_real_system_info
+from src.selfcheck.data import load_real_frames, load_real_system_info
 
 
 def run():

@@ -28,16 +28,23 @@ Scripts\capture_debug.bat --process-name Unity.exe --timed 8
 
 ## Tests
 
+This project does not keep a large assertion suite. After a change:
+
 ```bat
-python -m src.tests
+python Scripts/check.py              :: compile + import + lint
+python -m src.main -t ui             :: real window + PNGs in temp/selfcheck/shots/
+python -m src.main -t update         :: real localhost download / verify / cancel
+python -m src.tests                  :: three contract checks (i18n / CSV / manifest)
 ```
 
-The suite forces `QT_QPA_PLATFORM=offscreen`. Prefer real capture data via `load_real_frames()`; see `test-design`.
+The `capture` area needs admin: `Scripts\selfcheck.bat capture -a App.exe -s 8`. Do not run `python -m src.main -t capture` from a non-admin shell (UAC relaunch drops the output).
+
+Read the report. `ERROR` fails the run; `SUSPECT` and the screenshots are judgement calls. See `test-after-changes` and `test-design`. Do not add mocks or fabricated frames.
 
 ## Pull requests
 
 - Keep the change focused; do not mix refactors with feature work
-- Add or update `src/tests/` when public APIs change
+- Prefer a self-check area (`src/selfcheck/`) over a new file in `src/tests/`
 - UI strings go through `tr(key)` in **both** `src/i18n/en.py` and `src/i18n/zh_CN.py`
 - Do not add secrets, OSS upload scripts, or hardcoded credentials
 - Source comments, project skills, changelog, and commit messages stay in English. Do not add Chinese comments. `src/i18n/zh_CN.py` is the only Chinese file (UI strings).

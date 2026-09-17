@@ -5,7 +5,6 @@ import os
 import subprocess
 import threading
 
-import psutil
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from src.config import PRESENTMON_EXE
@@ -13,7 +12,6 @@ from src.models import SessionConfig
 from src.core.csv_parser import CsvParser
 from src.core.data_store import DataStore
 from src.i18n import tr
-from src.core import system_metrics as mc
 
 logger = logging.getLogger(__name__)
 

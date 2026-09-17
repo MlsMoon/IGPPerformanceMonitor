@@ -1,7 +1,5 @@
 """CSV importer — parses exported CSV back into structured data for analysis."""
 
-import csv
-import io
 import logging
 import re
 from dataclasses import dataclass

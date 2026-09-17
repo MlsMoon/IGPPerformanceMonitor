@@ -90,10 +90,13 @@ python Scripts\generate_manifest.py
 ## テスト
 
 ```bat
+python Scripts/check.py
+python -m src.main -t ui
+python -m src.main -t update
 python -m src.tests
 ```
 
-オフスクリーン Qt は自動で設定されます。`.claude/skills/test-after-changes/SKILL.md` と `.claude/skills/test-design/SKILL.md` を参照してください。
+キャプチャ自検は管理者権限が必要です：`Scripts\selfcheck.bat capture -a App.exe -s 8`。`.claude/skills/test-after-changes/SKILL.md` を参照してください。
 
 ## コントリビュート / セキュリティ
 

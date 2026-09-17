@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    name: Offscreen tests (Windows)
+    name: Static check + self-checks (Windows)
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -29,10 +29,26 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Compile
-        run: python -m compileall -q src
+      - name: Static check
+        run: python Scripts/check.py
 
-      - name: Offscreen suite
+      # No display and no fonts on a runner, so the screenshots are throwaway;
+      # what CI gets out of this area is that the window builds and every slot
+      # runs without throwing.
+      - name: Self-check — ui
         env:
           QT_QPA_PLATFORM: offscreen
+          IGP_SKIP_CAPTURE_GEN: "1"
+        run: python -m src.main -t ui
+
+      - name: Self-check — update
+        run: python -m src.main -t update
+
+      # The capture area is deliberately absent: PresentMon needs admin and a
+      # GPU actually presenting frames, neither of which a runner has.
+
+      - name: Contract checks
+        env:
+          QT_QPA_PLATFORM: offscreen
+          IGP_SKIP_CAPTURE_GEN: "1"
         run: python -m src.tests

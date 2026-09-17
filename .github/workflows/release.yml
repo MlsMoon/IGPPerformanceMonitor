@@ -50,9 +50,22 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Offscreen suite
+      - name: Static check
+        run: python Scripts/check.py
+
+      - name: Self-check — ui
         env:
           QT_QPA_PLATFORM: offscreen
+          IGP_SKIP_CAPTURE_GEN: "1"
+        run: python -m src.main -t ui
+
+      - name: Self-check — update
+        run: python -m src.main -t update
+
+      - name: Contract checks
+        env:
+          QT_QPA_PLATFORM: offscreen
+          IGP_SKIP_CAPTURE_GEN: "1"
         run: python -m src.tests
 
       - name: Build EXEs
