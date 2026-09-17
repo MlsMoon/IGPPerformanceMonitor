@@ -68,7 +68,9 @@ Outputs in `dist\`:
 - `IGPPerformanceMonitor-Setup-<version>.exe` (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php))
 - `app_manifest.json` (GitHub Release metadata)
 
-Tagging `vX.Y.Z` (must match `VERSION`) runs `.github/workflows/release.yml`, which publishes those files as a GitHub Release.
+Default branch is **`develop`**. Stabilization and tags live on **`release`**. Both are protected.
+
+Tagging `vX.Y.Z` on `release` (must match `VERSION`) runs `.github/workflows/release.yml`, which publishes those files as a GitHub Release.
 
 ## Tests
 

@@ -57,6 +57,6 @@ After a large change you **must**:
 3. If you add/remove a module, update this index and the Key Modules table in `CLAUDE.md`
 4. If you touched metric fields, run `verify-metrics`
 
-Project-owned skills stay **English**. UI copy stays bilingual.
+**Language:** project-owned skills, `CLAUDE.md`, source comments, changelog, and commit messages stay **English**. Do not add Chinese comments or skill prose. UI copy stays bilingual (`en` / `zh_CN`); `zh_CN.py` is the only Chinese source file.
 
 > A script cannot write these notes (an LLM has to judge). This rule + `CLAUDE.md` + the Stop hook is the semi-automatic loop.

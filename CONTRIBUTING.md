@@ -40,9 +40,10 @@ The suite forces `QT_QPA_PLATFORM=offscreen`. Prefer real capture data via `load
 - Add or update `src/tests/` when public APIs change
 - UI strings go through `tr(key)` in **both** `src/i18n/en.py` and `src/i18n/zh_CN.py`
 - Do not add secrets, OSS upload scripts, or hardcoded credentials
-- Source comments and project skills stay in English
+- Source comments, project skills, changelog, and commit messages stay in English. Do not add Chinese comments. `src/i18n/zh_CN.py` is the only Chinese file (UI strings).
 - Self-update assets are published only as **GitHub Release** files (`app_manifest.json`, portable EXE, updater, installer)
+- Open pull requests against **`develop`**. Do not force-push `develop` or `release`.
 
 ## Release
 
-Maintainers follow `.claude/skills/release/SKILL.md`: bump `VERSION`, changelog, tests, annotated tag `vX.Y.Z`. GitHub Actions builds the EXEs + installer and publishes the Release.
+Maintainers follow `.claude/skills/release/SKILL.md`: bump `VERSION` on `develop`, fast-forward `release`, annotated tag `vX.Y.Z` on `release`. GitHub Actions builds the EXEs + installer and publishes the Release.

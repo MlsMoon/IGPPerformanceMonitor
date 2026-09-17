@@ -31,15 +31,19 @@ git tag -a "vX.Y.Z" -m "Release X.Y.Z"
 ### 3. Push (authorized by the release trigger)
 
 ```bat
-git push origin HEAD
+git checkout release
+git merge --ff-only develop
+git push origin release
+git tag -a "vX.Y.Z" -m "Release X.Y.Z"
 git push origin vX.Y.Z
 ```
 
-Push the branch first, then the tag. Retry transient GitHub network errors.
+Ship from `release`. Push the branch first, then the annotated tag. Retry transient GitHub network errors.
 
 ## Pitfalls
 
-- Tag is `v` + semver (`v0.2.5`). CI checks `github.ref_name == v$(VERSION)`.
+- Tag is `v` + semver (`v0.1.0`). CI checks `github.ref_name == v$(VERSION)`.
+- Tags are created on `release`, not `develop`.
 - Do not tag if phase 2 tests failed.
 - To undo an **unpublished** tag: `git tag -d vX.Y.Z` and `git push origin :refs/tags/vX.Y.Z`. Never recycle a tag that already has a GitHub Release.
 

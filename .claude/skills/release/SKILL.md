@@ -22,6 +22,19 @@ Four phases, **in order, without pausing for confirmation**. Report each step. O
 
 The trigger words authorize the git push. **CI is the only binary publisher.** Do not upload to object storage. Do not invent credentials.
 
+## Branches
+
+| Branch | Role |
+|---|---|
+| `develop` | Default integration branch. Daily work and pull requests land here. |
+| `release` | Stabilization / ship line. Cut annotated tags (`vX.Y.Z`) from here. |
+
+Both branches are **protected** (no force-push, no delete). Do not recreate `main` / `master`.
+
+## Language
+
+Project-owned skills, `CLAUDE.md`, source comments, changelog, and commit messages are **English**. The only Chinese in-tree is UI copy in `src/i18n/zh_CN.py`.
+
 ## Rules
 
 - Do not stop to ask "continue?" between phases.

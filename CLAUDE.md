@@ -45,7 +45,7 @@ Third-party **reference** skills (PyQt5; already English):
 
 > Third-party skills are a **reference library**, not project workflow. `pyqt*` comes from `CodeAtCode/oss-ai-skills` (GPL-3.0); `qt-ui-design` from `TheQtCompanyRnD/agent-skills` (BSD-3-Clause / Qt-Commercial).
 
-**Language rule:** project-owned skills, `CLAUDE.md`, and source comments are English. User-visible UI stays bilingual (`en` / `zh_CN`).
+**Language rule:** project-owned skills, `CLAUDE.md`, source comments, changelog, and commit messages are English. Do not add Chinese comments or skill text. User-visible UI stays bilingual (`en` / `zh_CN`); `src/i18n/zh_CN.py` is the only Chinese file.
 
 ## Commands
 
@@ -92,7 +92,8 @@ Do **not** publish updates through object storage. Do **not** put cloud keys in 
 ## Release / version / update
 
 - **Version source:** root `VERSION` (semver). Bump it for every release.
-- **Tag:** annotated `vX.Y.Z` that **equals** `v` + `VERSION`. CI refuses a mismatch.
+- **Branches:** `develop` (default, PRs) and `release` (tags). Both are protected. There is no `main`.
+- **Tag:** annotated `vX.Y.Z` on `release` that **equals** `v` + `VERSION`. CI refuses a mismatch.
 - **Changelog:** `CHANGELOG.md` is bundled and shown in Help → Changelog.
 - **Build metadata:** `Scripts\build.bat` writes `build/generated/build_info.txt` as `yyyyMMdd-HHmmss-gitsha` (`APP_BUILD`, not the version).
 - **Publisher:** GitHub Actions `.github/workflows/release.yml` on tag `v*.*.*`.
