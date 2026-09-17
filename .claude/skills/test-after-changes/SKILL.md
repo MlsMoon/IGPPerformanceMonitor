@@ -51,6 +51,8 @@ python -m src.tests
 
 If you change a public API, update the matching `src/tests/` file.
 
+The suite points `APPDATA` at a throwaway directory (`src/tests/__init__.py`) before anything imports `app_config`, because the UI tests build a real `MainWindow` and call real slots that persist theme, chart visibility and splitter state. Without it the suite silently rewrites your own settings — it flipped a dev machine to the light theme once. Any new harness that drives the UI (screenshot scripts included) must do the same, or it will do the same damage.
+
 ## Step B — Headless capture (admin, `capture_debug.bat`)
 
 Do **not** run `python -m src.main --headless` from a non-admin agent.

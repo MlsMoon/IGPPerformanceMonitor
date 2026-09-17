@@ -8,6 +8,7 @@ instead of fail — used by real-data tests when the capture can't be generated.
 
 import sys
 import os
+import tempfile
 import traceback
 
 from src.tests._factory import SkipTest
@@ -15,6 +16,14 @@ from src.tests._factory import SkipTest
 # Force the offscreen Qt platform so the suite runs without a display server.
 # A caller-set value wins (setdefault). Must precede any QApplication creation.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+# Redirect the config file into a throwaway directory. The UI tests build a real
+# MainWindow and call real slots, several of which persist (theme, chart
+# visibility, splitter state), so without this the suite quietly rewrites the
+# developer's own settings — it has already flipped a machine to the light theme
+# once. app_config reads APPDATA on every call, so setting it here is enough.
+_CONFIG_SANDBOX = tempfile.TemporaryDirectory(prefix="igp-tests-appdata-")
+os.environ["APPDATA"] = _CONFIG_SANDBOX.name
 
 # ── Suppress libpng iCCP noise during tests (same as main.py) ──
 _orig_stderr = sys.stderr
