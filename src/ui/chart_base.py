@@ -35,6 +35,26 @@ from src.ui.theme import (
 
 _MAX_PLOT_POINTS = 2000
 
+
+def _clear_layout(layout) -> None:
+    """Remove every widget from *layout* so it cannot keep painting.
+
+    ``takeAt`` only unhooks the layout item. The widget stays a child of the
+    parent and stays visible until ``deleteLater`` runs, so a dark StatsList
+    would sit on top of the light one after a theme switch.
+    """
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        if widget is None:
+            child = item.layout()
+            if child is not None:
+                _clear_layout(child)
+            continue
+        widget.hide()
+        widget.setParent(None)
+        widget.deleteLater()
+
 # Y-axis ceilings for core/RAM charts (AutoSize is always available per card).
 _CORE_COUNT = psutil.cpu_count(logical=True) or 16
 _RAM_TOTAL_GB = max(8, round(psutil.virtual_memory().total / (1024 ** 3)))
@@ -281,10 +301,7 @@ def populate_system_chip_bar(bar: QFrame, text: str, t=None) -> None:
         return
     bar._igp_text = text
     lay = bar.layout()
-    while lay.count():
-        item = lay.takeAt(0)
-        if item.widget():
-            item.widget().deleteLater()
+    _clear_layout(lay)
     t = t or current_theme()
     for seg in text.split(" | "):
         seg = seg.strip()
@@ -713,10 +730,7 @@ class ChartViewMixin:
         Lists all *configured* apps (via _get_monitored_apps), so idle apps (0
         frames) still appear — greyed with a 'no frames' suffix and '—' values.
         """
-        while grid.count():
-            item = grid.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        _clear_layout(grid)
 
         t = current_theme()
         apps = self._get_monitored_apps()

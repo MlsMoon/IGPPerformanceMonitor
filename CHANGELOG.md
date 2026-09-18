@@ -11,6 +11,59 @@ Do not ship a release whose notes are only the auto-generated
 Headings must stay `## X.Y.Z` — the in-app dialog splits on those lines.
 Use `### Added` / `### Changed` / `### Fixed` / `### For contributors` as needed.
 
+## 0.1.4
+
+Released 2026-09-18.
+
+Capture can tell two copies of the same program apart. The in-app manual now
+has real screenshots, Help → Changelog follows the UI language, and a couple
+of live-session nits around export and the View menu are fixed.
+
+### Added
+
+- Process Selection lists each running copy of an exe as its own row:
+  `name  (pid)  —  window title`. Two Unity Editors on different projects no
+  longer collapse into one target. Click a row to flash that window;
+  right-click **Switch to this window**. Capture attaches by process id. The
+  monitored list is saved as exe + title and re-bound after a restart.
+- Help → User Manual includes photographs of the real window (process panel,
+  main view, overlay, CSV dialogs, light theme) for English and Simplified
+  Chinese. Figures scale to the pane. Text selection uses a gray wash instead
+  of Qt's default purple or blue highlight.
+
+### Changed
+
+- Help → Changelog shows the file that matches the UI language
+  (`CHANGELOG.md` or `CHANGELOG.zh-CN.md`) with the same version list. GitHub
+  Release notes are generated from both files, instead of the empty
+  `Full Changelog: vA...vB` compare link that 0.1.0–0.1.3 shipped with.
+- File → Import CSV / offline analysis groups curves by instance (exe + PID),
+  so two `Unity.exe` in one file become two series instead of one mixed line.
+
+### Fixed
+
+- File → Export CSV reminds you the file is the current session only. Starting
+  capture again clears those frames, so a later export will not include them.
+  The dialog already showed the frame count; without the note it was easy to
+  assume the previous run was still in the file.
+- View menu labels now share one left edge. **Charts** (submenu) and
+  **Overlay** (plain action) used to sit to the left of the checkable rows
+  (Dark mode, Always on top, Click-through) because Qt 5.15.2's stylesheet
+  style only indents checkable items.
+- Switching View → Dark mode off left the live statistics table on the dark
+  card colour. Rebuilding the table took widgets out of the layout but left
+  them parented, so the old dark frame stayed on screen.
+
+### For contributors
+
+- `python -m src.selfcheck.docs_shots` captures, judges, and copies user-guide
+  PNGs into `docs/images/`.
+- UI self-check also grabs the open View menu (`dark-view-menu.png` /
+  `light-view-menu.png`) so an indent regression is visible, and errors if a
+  previous `StatsList` is still parented after a theme switch.
+- `Scripts/extract_release_notes.py` writes the GitHub Release body;
+  `release.yml` sets `generate_release_notes: false`.
+
 ## 0.1.3
 
 Released 2026-09-18.

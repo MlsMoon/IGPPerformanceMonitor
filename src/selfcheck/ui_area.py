@@ -543,6 +543,7 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
                 current = theme.current_theme()
                 report.fact(f"{name} palette",
                             f"bg={current.window_bg} accent={current.accent[0]}")
+                _check_stats_follows_theme(report, window, name)
                 for width, height in ((1280, 800), (1920, 1080)):
                     window.resize(width, height)
                     window._monitor_view.refresh_display_layout()
@@ -564,6 +565,44 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
             report.fact(os.path.basename(path), path)
         report.fact("note", "open all of these; they are the point of this area")
         report.fact("expected title", tr("window_title"))
+
+
+def _check_stats_follows_theme(
+    report: Report, window: MainWindow, name: str,
+) -> None:
+    """Theme switch must not leave a previous StatsList painting on top."""
+    t = theme.current_theme()
+    grid = window._monitor_view._stats_grid
+    in_layout = []
+    for i in range(grid.count()):
+        item = grid.itemAt(i)
+        widget = item.widget() if item is not None else None
+        if widget is not None and widget.objectName() == "StatsList":
+            in_layout.append(widget)
+    leftovers = [
+        w for w in window.findChildren(QFrame)
+        if w.objectName() == "StatsList" and w not in in_layout
+    ]
+    report.fact(
+        f"{name} StatsList widgets",
+        f"{len(in_layout)} in layout, {len(leftovers)} leftover",
+    )
+    if leftovers:
+        report.error(
+            f"{name}: {len(leftovers)} StatsList leftover outside the layout "
+            "(takeAt without unparent leaves the old table on screen)"
+        )
+    if len(in_layout) != 1:
+        report.error(
+            f"{name}: expected one StatsList in the stats grid, got {len(in_layout)}"
+        )
+        return
+    qss = in_layout[0].styleSheet()
+    if t.card_bg.lower() not in qss.lower():
+        report.error(
+            f"{name}: StatsList stylesheet missing card_bg {t.card_bg} "
+            "(the table did not follow the theme)"
+        )
 
 
 def _grab_view_menu(window: MainWindow, path: str) -> None:
