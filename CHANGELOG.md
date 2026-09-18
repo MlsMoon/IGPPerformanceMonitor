@@ -60,7 +60,8 @@ of live-session nits around export and the View menu are fixed.
   PNGs into `docs/images/`.
 - UI self-check also grabs the open View menu (`dark-view-menu.png` /
   `light-view-menu.png`) so an indent regression is visible, and errors if a
-  previous `StatsList` is still parented after a theme switch.
+  previous `StatsList` is still parented after a theme switch. An empty
+  session (CI has no capture) keeps the placeholder; that is not an error.
 - `Scripts/extract_release_notes.py` writes the GitHub Release body;
   `release.yml` sets `generate_release_notes: false`.
 

@@ -570,7 +570,12 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
 def _check_stats_follows_theme(
     report: Report, window: MainWindow, name: str,
 ) -> None:
-    """Theme switch must not leave a previous StatsList painting on top."""
+    """Theme switch must not leave a previous StatsList painting on top.
+
+    An empty session (CI has no capture) shows a placeholder QLabel, not a
+    table — zero in-layout StatsList is then expected. Leftovers are still
+    an error: that is the takeAt-without-unparent bug.
+    """
     t = theme.current_theme()
     grid = window._monitor_view._stats_grid
     in_layout = []
@@ -592,6 +597,12 @@ def _check_stats_follows_theme(
             f"{name}: {len(leftovers)} StatsList leftover outside the layout "
             "(takeAt without unparent leaves the old table on screen)"
         )
+    if not in_layout:
+        report.fact(
+            f"{name} StatsList",
+            "none — empty session uses a placeholder, not a table",
+        )
+        return
     if len(in_layout) != 1:
         report.error(
             f"{name}: expected one StatsList in the stats grid, got {len(in_layout)}"

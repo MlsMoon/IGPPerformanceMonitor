@@ -36,7 +36,7 @@ IGP Performance Monitor 面向用户的版本说明。英文原文见
 ### 面向贡献者
 
 - `python -m src.selfcheck.docs_shots` 负责拍摄、评判，并把用户手册 PNG 拷进 `docs/images/`。
-- UI 自检还会抓打开的「查看」菜单（`dark-view-menu.png` / `light-view-menu.png`），缩进回退一眼能看出来；主题切换后如果还有旧的 `StatsList` 挂在树上也会报错。
+- UI 自检还会抓打开的「查看」菜单（`dark-view-menu.png` / `light-view-menu.png`），缩进回退一眼能看出来；主题切换后如果还有旧的 `StatsList` 挂在树上也会报错。没有采集数据的空会话（CI 就是这样）只显示占位符，不算错误。
 - GitHub Release 正文由 `Scripts/extract_release_notes.py` 写出；`release.yml` 设置了 `generate_release_notes: false`。
 
 ## 0.1.3
