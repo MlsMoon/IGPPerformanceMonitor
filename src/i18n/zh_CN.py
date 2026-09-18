@@ -115,6 +115,10 @@ TRANSLATIONS: dict[str, str] = {
     "total_frames": "总帧数",
     "duration": "持续时间",
     "seconds_unit": "秒",
+    "export_session_note": (
+        "本次导出仅包含当前这次采集。再次开始采集会清空已采集的帧，"
+        "之后再导出不会带上本次内容。"
+    ),
     "export_scope": "导出范围",
     "all_frames": "所有采集的帧",
     "per_process": "按进程分开（每个进程单独文件）",

@@ -113,6 +113,12 @@ class CsvExportDialog(QDialog):
         )
         layout.addWidget(info_label)
 
+        note = QLabel(tr("export_session_note"))
+        note.setWordWrap(True)
+        t = theme.current_theme()
+        note.setStyleSheet(f"color: {t.text_muted}; font-size: 9pt;")
+        layout.addWidget(note)
+
         # Scope
         scope_group = QGroupBox(tr("export_scope"))
         scope_layout = QVBoxLayout(scope_group)

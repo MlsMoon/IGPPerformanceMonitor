@@ -116,6 +116,10 @@ TRANSLATIONS: dict[str, str] = {
     "total_frames": "Total frames",
     "duration": "Duration",
     "seconds_unit": "seconds",
+    "export_session_note": (
+        "This file is the current session only. Starting capture again "
+        "clears those frames, so a later export will not include them."
+    ),
     "export_scope": "Export Scope",
     "all_frames": "All captured frames",
     "per_process": "Per-process (separate file for each)",
