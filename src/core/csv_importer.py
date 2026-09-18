@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 
 from src.models import FrameData, SystemInfo
+from src.models import frame_series_key, pretty_series_key
 from src.core.csv_parser import CsvParser
 
 logger = logging.getLogger(__name__)
@@ -140,12 +141,17 @@ def _parse_monitored(line: str) -> list[str]:
 
 
 def group_frames_by_app(frames: list[FrameData]) -> dict[str, list[FrameData]]:
-    """Group frames by application name."""
+    """Group frames by instance (exe + PID), not by Application name alone."""
     groups: dict[str, list[FrameData]] = {}
     for f in frames:
-        key = f.application or f"pid_{f.process_id}"
+        key = frame_series_key(f)
         groups.setdefault(key, []).append(f)
     return groups
+
+
+def group_display_name(key: str) -> str:
+    """Legend / filename label for a ``group_frames_by_app`` key."""
+    return pretty_series_key(key)
 
 
 def compute_gpu_estimate(ms_gpu_busy: float | None, ms_between_presents: float | None) -> float:

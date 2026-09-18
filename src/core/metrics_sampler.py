@@ -205,7 +205,7 @@ class SystemMetricsSampler(QThread):
                 name = proc.name()
             except Exception:
                 name = ""
-            key = name or f"pid_{pid}"
+            key = f"{name}|{pid}" if pid else (name or f"pid_{pid}")
             self._data_store.add_per_process_snapshot(key, PerProcessSnapshot(
                 timestamp=elapsed,
                 process_name=name,

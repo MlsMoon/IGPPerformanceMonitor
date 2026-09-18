@@ -67,6 +67,13 @@ class FrameData:
     # --- Derived (None = could not be computed, e.g. no ms_between_presents) ---
     fps: Optional[float] = None
 
+    def series_key(self) -> str:
+        """Chart / stats / overlay identity: exe + PID so two Unity.exe do not merge.
+
+        CSV still stores PresentMon's ``Application`` column unchanged.
+        """
+        return frame_series_key(self)
+
     @classmethod
     def field_names_v2(cls) -> list[str]:
         """Return expected CSV column names for v2 metrics."""
@@ -157,6 +164,9 @@ class SessionConfig:
     """Configuration for a monitoring session."""
     process_names: list[str] = field(default_factory=list)
     process_ids: list[int] = field(default_factory=list)
+    # pid → exe name (PresentMon Application) and a UI label (window title).
+    process_id_names: dict[int, str] = field(default_factory=dict)
+    process_labels: dict[int, str] = field(default_factory=dict)
     exclude_names: list[str] = field(default_factory=list)
     timed_seconds: int = 0
     output_file: str = ""
@@ -165,6 +175,31 @@ class SessionConfig:
     track_display: bool = True
     track_input: bool = True
     track_gpu: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Per-instance series identity (two Unity.exe must not share one chart)
+# ---------------------------------------------------------------------------
+
+def frame_series_key(frame: FrameData) -> str:
+    """Stable per-PID key. ``application`` alone collapses duplicate executables."""
+    if frame.process_id:
+        return f"{frame.application or 'unknown'}|{frame.process_id}"
+    return frame.application or "unknown"
+
+
+def pretty_series_key(key: str) -> str:
+    """Human label for a series key when no window-title map is available."""
+    if "|" not in key:
+        return key
+    app, pid = key.rsplit("|", 1)
+    if pid.isdigit():
+        return f"{app} ({pid})"
+    return key
+
+
+def series_key_for_pid(exe_name: str, pid: int) -> str:
+    return f"{exe_name or 'unknown'}|{pid}"
 
 
 # ---------------------------------------------------------------------------

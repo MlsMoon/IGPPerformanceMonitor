@@ -51,20 +51,24 @@ About 1.5 seconds after launch, a packaged build silently checks GitHub for a ne
 ## 3. First capture
 
 1. Start the game or target app so it appears in the process list.
-2. In the left **Process Selection** panel, search if needed.
-3. Select one or more names (for example `game.exe`) and click **▶** — or double-click a name.
+2. In the left **Process Selection** panel, search by exe name, window title, or PID.
+3. Select one or more **instances** and click **▶** — or double-click a row. Two copies of the same exe (for example two Unity Editors on different projects) are separate rows: `Unity.exe  (pid)  —  window title`. Click a row to flash that window; right-click **Switch to this window**.
 4. Optional: set **Auto-stop after (seconds)**. `0` means run until you stop.
 5. Click **Start Capture** or press **F5**.
 6. Play. Watch the stats table and charts. An overlay appears on each monitored window.
 7. Click **Stop** or press **F5** again.
 
-The monitored list is saved and restored next time. A name that is not running yet is harmless; PresentMon waits for it to present frames.
+![Process selection: search, available list, monitored list, Start Capture](../images/en/process-panel.png)
+
+The monitored list is saved (exe + window title) and restored next time. A stale instance is harmless until you start capture; refresh and pick a live row if the process has restarted.
 
 You must add at least one process. Capturing every process on the machine is only available in [headless mode](#14-headless--command-line) (`--all-processes`) and is not recommended for live UI work.
 
-If the session ends with zero frames, the app warns you: the name may be wrong, or the process is not rendering.
+If the session ends with zero frames, the app warns you: the instance may have exited, or the process is not rendering.
 
 ## 4. Main window
+
+![Main window: process list on the left, live statistics and charts on the right](../images/en/main-window.png)
 
 ### Layout
 
@@ -122,6 +126,8 @@ Live FPS **charts** apply a light EMA so unlocked-FPS titles do not flicker. **C
 
 ### Show or hide
 
+![Charts panel open under system info, with per-chart show/hide chips](../images/en/charts-panel.png)
+
 Show or hide a chart from:
 
 - **View → Charts**
@@ -142,6 +148,8 @@ Capture starts one always-on-top overlay per monitored app. It parks near the to
 
 Each overlay shows: app name, FPS (EMA), frame time, app memory, app CPU (and cores used), app GPU, system VRAM %, system CPU.
 
+![Always-on-top overlay parked on the monitored window](../images/en/overlay.png)
+
 ### Overlay controls
 
 | Action | How |
@@ -158,6 +166,8 @@ The tracker picks the largest visible, titled, non-tool window for the process. 
 - **Ctrl+T** or View → **Always on Top** pins the main window.
 - Splitter widths (side panel vs charts, stats vs charts) and window geometry are restored on the next launch.
 
+![The same session in light theme](../images/en/theme-light.png)
+
 ## 9. Export CSV
 
 **File → Export CSV…** or **Ctrl+E** after you have frames.
@@ -168,6 +178,8 @@ Options:
 - **Per-process** — one file per app in a folder
 - Include header
 - Append summary statistics (avg / min / max / 1% low / 5% low, plus app CPU and memory)
+
+![Export CSV dialog: all frames or per-process, optional header and summary](../images/en/export-csv.png)
 
 Encoding is the system default. Comment lines at the top record CPU / GPU / RAM / displays, the monitored list, and export time.
 
@@ -186,7 +198,9 @@ The analysis window has four tabs:
 | Stutter | Fixed 33.3 ms / 50 ms spikes and dynamic spikes (about 2× a recent baseline) |
 | Data Quality | How many rows actually contain each metric |
 
-Use this to review a previous session or a headless capture without running PresentMon again.
+![Offline analysis: summary cards plus raw FPS and frame-time charts](../images/en/csv-analysis.png)
+
+Imported FPS is **raw**, same as the CSV. Unlocked presenters can spike on this tab; the live window's FPS chart uses EMA. Use this to review a previous session or a headless capture without running PresentMon again.
 
 ## 11. Updates and rollback
 

@@ -145,6 +145,44 @@ def page_id_for_path(path: Path) -> str | None:
     return None
 
 
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+_MD_IMG = re.compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)>?")
+_HTML_IMG = re.compile(r"<img\b[^>]*\bsrc\s*=\s*['\"]([^'\"]+)['\"]", re.I)
+
+
+def markdown_image_hrefs(markdown: str) -> list[str]:
+    """Local and remote image targets from markdown ``![]()`` and HTML ``<img>``."""
+    found = _MD_IMG.findall(markdown) + _HTML_IMG.findall(markdown)
+    return [href.strip() for href in found if href.strip()]
+
+
+def resolve_doc_image(current_file: Path, href: str) -> Path | None:
+    """Resolve a markdown image href to a file under ``docs/``, or None.
+
+    Rejects http(s), data URIs, and anything that escapes the docs tree.
+    """
+    if not href:
+        return None
+    href = href.strip()
+    if href.startswith(("http://", "https://", "mailto:", "data:")):
+        return None
+
+    path_part = href.split("#", 1)[0]
+    if not path_part:
+        return None
+    candidate = Path(path_part)
+    if not candidate.is_absolute():
+        candidate = current_file.parent / candidate
+    try:
+        candidate = candidate.resolve()
+        candidate.relative_to(docs_root().resolve())
+    except (OSError, ValueError):
+        return None
+    if candidate.suffix.lower() not in _IMAGE_EXTS or not candidate.is_file():
+        return None
+    return candidate
+
+
 def resolve_doc_href(current_file: Path, href: str) -> Path | None:
     """Resolve a markdown href to a ``.md`` file under ``docs/``, or None.
 

@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
 )
 
 from src.i18n import tr
-from src.models import SessionConfig
+from src.models import SessionConfig, frame_series_key
 from src.core.capture_session import CaptureSession
 from src.core.csv_importer import import_file
 from src.core.app_info import APP_VERSION, APP_BUILD, GITHUB_REPO_URL, is_dev_mode
@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
         self._data_store = self._session.data_store
         self._wrapper = self._session.wrapper
         self._sampler = self._session.sampler
-        self._overlays: dict[str, OverlayWindow] = {}
+        self._overlays: dict[int, OverlayWindow] = {}
         self._screen_hook_handle = None
         self._overlays_suppressed = False      # F9 master hide for all overlays
         self._click_through = app_config.get("overlay_click_through", False)
@@ -280,28 +280,47 @@ class MainWindow(QMainWindow):
             )
             return
 
-        proc_names = self._process_panel.get_process_names()
-        logger.info(f"Starting capture for processes: {proc_names}")
+        instances, names = self._process_panel.live_capture_targets()
+        if not instances and not names:
+            QMessageBox.warning(
+                self, tr("process_not_running_title"), tr("process_not_running_text")
+            )
+            return
+
+        logger.info(
+            "Starting capture for pids=%s names=%s",
+            [i.pid for i in instances], names,
+        )
 
         config = SessionConfig(
-            process_names=self._process_panel.get_process_names(),
+            process_names=names,
+            process_ids=[i.pid for i in instances],
+            process_id_names={i.pid: i.name for i in instances},
+            process_labels={i.pid: i.compact_label() for i in instances},
             timed_seconds=self._process_panel.get_timed_seconds(),
         )
         self._session.start(config)
 
-        # One overlay per configured app (position follows each app's window).
-        for name in proc_names:
-            self._ensure_overlay(name).set_capture_active(True)
+        wanted = {i.pid for i in instances}
+        if wanted:
+            for pid, ov in list(self._overlays.items()):
+                if pid not in wanted:
+                    ov.set_capture_active(False)
+        for inst in instances:
+            self._ensure_overlay(inst.pid, inst.compact_label()).set_capture_active(True)
 
-    def _ensure_overlay(self, name: str) -> OverlayWindow:
-        """Get (creating if needed) the overlay for an app name."""
-        ov = self._overlays.get(name)
+    def _ensure_overlay(self, pid: int, label: str) -> OverlayWindow:
+        """Get (creating if needed) the overlay for a process instance."""
+        ov = self._overlays.get(pid)
         if ov is None:
-            ov = OverlayWindow(name)
+            ov = OverlayWindow(label, pid=pid)
             ov.set_click_through(self._click_through)
             if self._overlays_suppressed:
                 ov.set_suppressed(True)
-            self._overlays[name] = ov
+            self._overlays[pid] = ov
+        else:
+            ov.set_app_name(label)
+            ov.set_pid(pid)
         return ov
 
     def _stop_capture(self):
@@ -317,10 +336,15 @@ class MainWindow(QMainWindow):
         elapsed = self._data_store.get_elapsed_seconds()
         if count % 60 == 0:
             self._status_bar.showMessage(tr("status_capturing", count, elapsed))
-        app = frame.application or f"pid_{frame.process_id}"
-        ov = self._overlays.get(app)
-        if ov is not None and ov.isVisible():
-            ov.update_frame(frame)
+        pid = frame.process_id
+        if pid <= 0:
+            return
+        ov = self._overlays.get(pid)
+        if ov is None:
+            label = self._data_store.display_name(frame_series_key(frame))
+            ov = self._ensure_overlay(pid, label)
+            ov.set_capture_active(True)
+        ov.update_frame(frame)
 
     def _on_error(self, msg: str):
         QMessageBox.critical(self, tr("capture_error_title"), msg)

@@ -5,6 +5,7 @@ import time
 from collections import defaultdict
 from src.models import (
     FrameData, ProcessStats, SystemInfo, SystemSnapshot, PerProcessSnapshot,
+    frame_series_key, pretty_series_key,
 )
 from src.config import DEFAULT_MAX_FRAMES_BUFFER, DEFAULT_CHART_HISTORY_SECONDS
 from src.core.filters import iqr_filter_series
@@ -25,10 +26,12 @@ class DataStore:
         # System info (set once at session start)
         self._system_info: SystemInfo | None = None
 
-        # Configured (target) app names — distinct from get_process_names() which
-        # only lists apps that have produced ≥1 frame. Used to surface idle apps
-        # (configured but not yet presenting/rendering) in the UI.
+        # Configured (target) series keys — distinct from get_process_names()
+        # which only lists keys that have produced ≥1 frame. Idle apps (picked
+        # but not yet presenting) still show in the stats list.
         self._monitored_apps: list[str] = []
+        # Optional pretty labels for series keys (window title, etc.).
+        self._process_labels: dict[str, str] = {}
 
         # Time-series snapshots for charts
         self._system_snapshots: list[SystemSnapshot] = []
@@ -44,10 +47,9 @@ class DataStore:
 
         # FPS history by process (for legacy chart compatibility)
         self._fps_history: dict[str, list[tuple[float, float]]] = defaultdict(list)
-        # Per-process metric history keyed by frame.application (same key as
-        # fps history), sourced from enriched FrameData fields. This keeps
-        # per-process mem/cpu/gpu curves consistent with fps + stats even when
-        # frame.application differs from psutil proc.name().
+        # Per-process metric history keyed by frame_series_key (exe|pid),
+        # sourced from enriched FrameData fields. Two instances of the same
+        # exe must not share a curve. Do not key off psutil proc.name().
         self._cpu_history: dict[str, list[tuple[float, float]]] = defaultdict(list)
         self._mem_history: dict[str, list[tuple[float, float]]] = defaultdict(list)
         self._gpu_history: dict[str, list[tuple[float, float]]] = defaultdict(list)
@@ -75,6 +77,7 @@ class DataStore:
             self._app_vram_history.clear()
             self._frame_count_by_process.clear()
             self._monitored_apps.clear()
+            self._process_labels.clear()
 
     def set_system_info(self, info: SystemInfo):
         """Store hardware system info."""
@@ -86,14 +89,39 @@ class DataStore:
             return self._system_info
 
     def set_monitored_apps(self, names: list[str]) -> None:
-        """Store the configured (target) app names for this session."""
+        """Store the configured (target) series keys for this session."""
         with self._lock:
             self._monitored_apps = list(names)
 
     def get_monitored_apps(self) -> list[str]:
-        """Configured app names (may include idle apps with 0 frames)."""
+        """Configured series keys (may include idle apps with 0 frames)."""
         with self._lock:
             return list(self._monitored_apps)
+
+    def set_process_labels(self, labels: dict[str, str]) -> None:
+        """Map series key → UI label (window title / exe (pid))."""
+        with self._lock:
+            self._process_labels = dict(labels)
+
+    def display_name(self, key: str) -> str:
+        """Label for charts/stats. Collapses ``exe|pid`` when that exe is unique."""
+        with self._lock:
+            mapped = self._process_labels.get(key)
+            if mapped:
+                return mapped
+            if "|" in key:
+                app = key.rsplit("|", 1)[0]
+                siblings = [
+                    k for k in self._frame_count_by_process
+                    if k == app or k.startswith(app + "|")
+                ]
+                configured = [
+                    k for k in self._monitored_apps
+                    if k == app or k.startswith(app + "|")
+                ]
+                if max(len(siblings), len(configured)) <= 1:
+                    return app
+            return pretty_series_key(key)
 
     # ------------------------------------------------------------------
     # Frame data
@@ -111,7 +139,7 @@ class DataStore:
                 self._session_start_time = time.time()
 
             self._frames.append(frame)
-            key = frame.application or f"pid_{frame.process_id}"
+            key = frame_series_key(frame)
             self._frame_count_by_process[key] += 1
 
             elapsed = time.time() - self._session_start_time
@@ -132,7 +160,7 @@ class DataStore:
             # Trim frames
             while len(self._frames) > self._max_frames:
                 old = self._frames.pop(0)
-                old_key = old.application or f"pid_{old.process_id}"
+                old_key = frame_series_key(old)
                 self._frame_count_by_process[old_key] = max(0, self._frame_count_by_process[old_key] - 1)
 
             # Trim per-process frame histories by TIME (cover the chart window),
@@ -187,10 +215,10 @@ class DataStore:
             return list(self._frame_count_by_process.keys())
 
     def get_monitored_apps_display(self) -> str:
-        """Return comma-separated list of monitored process names."""
+        """Return comma-separated pretty names of series that have frames."""
         with self._lock:
-            names = list(self._frame_count_by_process.keys())
-            return ", ".join(names) if names else ""
+            keys = list(self._frame_count_by_process.keys())
+        return ", ".join(self.display_name(k) for k in keys) if keys else ""
 
     def get_fps_history(self, process_name: str = "") -> list[tuple[float, float]]:
         with self._lock:
@@ -279,7 +307,11 @@ class DataStore:
                 return None
 
             if process_name:
-                frames = [f for f in self._frames if f.application == process_name or f"pid_{f.process_id}" == process_name]
+                frames = [
+                    f for f in self._frames
+                    if frame_series_key(f) == process_name
+                    or f.application == process_name
+                ]
             else:
                 frames = list(self._frames)
 
@@ -357,3 +389,4 @@ class DataStore:
             self._session_start_time = None
             self._system_info = None
             self._monitored_apps.clear()
+            self._process_labels.clear()

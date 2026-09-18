@@ -42,7 +42,8 @@ that must not throw is already covered by whichever area builds it.
 Three mechanisms. Prefer them over adding files.
 
 1. **Schema walking, inside an area.** Iterate `CSV_COLUMNS`, every `*_qss`
-   generator, every i18n key, `REQUIRED_MANIFEST_FIELDS`, `Theme` fields. A
+   generator, every i18n key, changelog `## X.Y.Z` ids (English vs Chinese),
+   `REQUIRED_MANIFEST_FIELDS`, `Theme` fields. A
    new column or stylesheet is covered the day it is added. A hand-written
    list of ten columns is a list that will be nine columns out of date.
 

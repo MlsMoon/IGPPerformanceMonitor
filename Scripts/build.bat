@@ -38,6 +38,7 @@ python -m PyInstaller --noconfirm --onefile --windowed --uac-admin ^
     --add-data "build\generated\build_info.txt;build\generated" ^
     --add-data "VERSION;." ^
     --add-data "CHANGELOG.md;." ^
+    --add-data "CHANGELOG.zh-CN.md;." ^
     --add-data "docs;docs" ^
     --add-data "assets\icon.png;assets" ^
     --add-data "assets\icon.ico;assets" ^

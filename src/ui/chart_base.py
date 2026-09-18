@@ -556,8 +556,13 @@ class ChartViewMixin:
         raise NotImplementedError
 
     def _get_monitored_apps(self) -> list[str]:
-        """Configured (target) app names — includes idle apps with 0 frames."""
+        """Configured (target) series keys — includes idle apps with 0 frames."""
         raise NotImplementedError
+
+    def _display_process_name(self, key: str) -> str:
+        """Legend / stats label for a series key. Default: pretty-print exe|pid."""
+        from src.models import pretty_series_key
+        return pretty_series_key(key)
 
     # -------- Concrete helpers --------
 
@@ -746,7 +751,7 @@ class ChartViewMixin:
             idle = s is None
             c = t.text_muted if idle else self._get_color(app)
             suffix = f" · {tr('stat_no_frames')}" if idle else ""
-            chip = QLabel(f"⬤ {app}{suffix}")
+            chip = QLabel(f"⬤ {self._display_process_name(app)}{suffix}")
             chip.setStyleSheet(
                 f"color: {c}; font-weight: 600; font-size: 9pt;"
                 + ("" if idle else "")
@@ -815,7 +820,7 @@ class ChartViewMixin:
             color = accent[i % len(accent)]
             pen = _pen(color, 2.0)
             if proc not in curves:
-                kw = dict(pen=pen, name=proc)
+                kw = dict(pen=pen, name=self._display_process_name(proc))
                 if fill_enabled and i == 0:
                     kw["fillLevel"] = 0
                     kw["brush"] = fill_brush(color)

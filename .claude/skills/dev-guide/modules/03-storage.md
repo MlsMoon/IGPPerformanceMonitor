@@ -14,7 +14,8 @@ Store frames and histories thread-safely for UI and export.
 ## Pitfalls
 
 - **Missing is `None`.** Enriched fields (including GPU) never use a `-1` sentinel. `_compute_fps` returns `None` when empty. Consumers use `is not None` — keep real 0, write NA when missing.
-- **Per-process mem/cpu/gpu history is frame-based** (key=`frame.application`, written in `add_frame`). Do **not** key off `per_process_snapshots[proc.name()]` — PresentMon `application` and psutil `name()` can differ, and live curves vanish.
+- **Per-process mem/cpu/gpu history is frame-based** (key=`frame_series_key` = `Application|PID`, written in `add_frame`). Two `Unity.exe` must not share a curve. Do **not** key off `per_process_snapshots[proc.name()]` — PresentMon `application` and psutil `name()` can differ, and live curves vanish. CSV still stores the raw `Application` column.
+- **Pretty labels** (`DataStore.set_process_labels` / `display_name`) are UI-only. Idle configured keys come from `SessionConfig.process_ids` as `exe|pid`.
 - **FPS history** is written when `fps is not None and fps > 0`.
 - **System snapshots come from the sampler** (`add_system_snapshot`). Total CPU/GPU/VRAM charts read `get_system_snapshots`.
 - **Snapshot-only fields** (`per_core_cpu_percent`, `gpu_power_w`, `gpu_temp_c`, `gpu_power_limit_w`) stay off FrameData and CSV.
@@ -28,11 +29,11 @@ Store frames and histories thread-safely for UI and export.
 ## Checklist
 
 - [ ] New/changed FrameData field → `metrics_schema` then 02/03/05/i18n; run `verify-metrics`
-- [ ] Per-process history still keyed by `frame.application`
+- [ ] Per-process history still keyed by `frame_series_key` (exe + PID)
 - [ ] Missing-value consumers use `is not None`
 - [ ] Stats ignore `None`
 - [ ] Configured-app lists use `get_monitored_apps()`
 - [ ] Frame history trim is time-windowed; stats/CSV still use `_frames`
 
 ---
-last_updated: 2026-09-17
+last_updated: 2026-09-18

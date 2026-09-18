@@ -9,7 +9,7 @@ from src.core import system_metrics as mc
 from src.core.data_store import DataStore
 from src.core.metrics_sampler import SystemMetricsSampler
 from src.core.presentmon import PresentMonWrapper
-from src.models import SessionConfig, SystemInfo
+from src.models import SessionConfig, SystemInfo, series_key_for_pid
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class CaptureSession:
         self._config = config
         self._data_store.start_session()
         self._data_store.set_system_info(_gather_system_info())
-        self._data_store.set_monitored_apps(config.process_names)
+        _apply_session_targets(self._data_store, config)
         self._wrapper.configure(config)
         self._sampler.configure(config)
         self._sampler.start()
@@ -65,7 +65,7 @@ class CaptureSession:
         self._config = config
         self._data_store.start_session()
         self._data_store.set_system_info(_gather_system_info())
-        self._data_store.set_monitored_apps(config.process_names)
+        _apply_session_targets(self._data_store, config)
         self._wrapper.configure(config)
         self._sampler.configure(config)
         self._sampler.start()
@@ -96,3 +96,21 @@ def _gather_system_info() -> SystemInfo:
     except Exception:
         logger.exception("Failed to gather system info")
         return SystemInfo()
+
+
+def _apply_session_targets(store: DataStore, config: SessionConfig) -> None:
+    """Stamp series keys + window-title labels so two Unity.exe stay distinct."""
+    keys: list[str] = []
+    labels: dict[str, str] = {}
+    for pid in config.process_ids:
+        exe = config.process_id_names.get(pid) or "unknown"
+        key = series_key_for_pid(exe, pid)
+        keys.append(key)
+        label = config.process_labels.get(pid)
+        if label:
+            labels[key] = label
+    for name in config.process_names:
+        if name not in keys:
+            keys.append(name)
+    store.set_monitored_apps(keys)
+    store.set_process_labels(labels)

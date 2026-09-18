@@ -47,7 +47,7 @@ Read the report. `ERROR` fails the run; `SUSPECT` and the screenshots are judgem
 - Prefer a self-check area (`src/selfcheck/`) over a new file in `src/tests/`
 - UI strings go through `tr(key)` in **both** `src/i18n/en.py` and `src/i18n/zh_CN.py`
 - Do not add secrets, OSS upload scripts, or hardcoded credentials
-- Source comments, project skills, changelog, and commit messages stay in English. Do not add Chinese comments. `src/i18n/zh_CN.py` is the only Chinese file (UI strings).
+- Source comments, project skills, and commit messages stay in English. Do not add Chinese comments. User-facing changelog is bilingual (`CHANGELOG.md` + `CHANGELOG.zh-CN.md`, same level of detail). Other Chinese copy is `src/i18n/zh_CN.py` and `docs/zh-CN/` / `docs/zh-TW/`.
 - Self-update assets are published only as **GitHub Release** files (`app_manifest.json`, portable EXE, updater, installer)
 - Open pull requests against **`develop`**. Do not force-push `develop` or `release`.
 

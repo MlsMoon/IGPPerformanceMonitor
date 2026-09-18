@@ -27,7 +27,7 @@ TRANSLATIONS: dict[str, str] = {
     "status_error": "错误：{}",
     "no_processes_title": "未添加进程",
     "no_processes_text": (
-        "请至少添加一个要监控的进程名称。\n\n"
+        "请至少添加一个要监控的进程。\n\n"
         "留空将捕获所有进程（不建议用于实时监控）。"
     ),
     "capture_error_title": "采集错误",
@@ -43,12 +43,22 @@ TRANSLATIONS: dict[str, str] = {
     "btn_start": "▶ 开始采集",
     "btn_stop": "■ 停止",
     "label_auto_stop": "自动停止（秒，0=不限）：",
-    "placeholder_search": "搜索进程...",
+    "placeholder_search": "搜索名称、窗口标题或 PID...",
     "available_processes": "可用进程",
     "monitored_processes": "监控进程",
     "tooltip_add": "加入监控",
     "tooltip_remove": "移出监控",
     "btn_refresh": "刷新进程列表",
+    "process_instance_hint": (
+        "同名程序按实例列出（窗口标题 + PID）。"
+        "单击一行可闪烁对应窗口，右键可切换到该窗口。"
+    ),
+    "menu_switch_to": "切换到此窗口",
+    "process_not_running_title": "进程未运行",
+    "process_not_running_text": (
+        "所选实例当前都不在运行。\n\n"
+        "请刷新列表后选择一个正在运行的进程。"
+    ),
 
     # monitor_view.py
     "live_statistics": "实时统计",

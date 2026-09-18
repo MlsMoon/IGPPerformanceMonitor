@@ -1,13 +1,13 @@
 """Overlay window — one per monitored app, positioned at its top-left corner."""
 
 import win32gui
-import win32process
-import win32con
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QMenu,
 )
 from PyQt5.QtGui import QColor, QFont
+
+from src.core.process_list import find_main_window
 
 from src.models import FrameData
 from src.core.csv_importer import compute_gpu_estimate
@@ -28,52 +28,14 @@ _POS_INTERVAL_MS = 33
 _DISPLAY_INTERVAL_MS = 250
 
 
-def find_main_window(pid: int) -> int | None:
-    """Find the main (largest non-tool) top-level window for a PID.
-
-    Returns None if not found. Picks the largest visible, non-toolwindow,
-    titled top-level window — robust for multi-window apps (Unity editor,
-    IDEs, browsers) where the old 'first match' heuristic picked the wrong
-    panel/tool window.
-    """
-    best = None
-    best_area = 0
-
-    def enum_callback(hwnd, _):
-        nonlocal best, best_area
-        if not win32gui.IsWindowVisible(hwnd):
-            return True
-        _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
-        if found_pid != pid:
-            return True
-        # skip tool windows / floating panels that aren't the main window
-        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-        if ex_style & win32con.WS_EX_TOOLWINDOW:
-            return True
-        if not win32gui.GetWindowText(hwnd):
-            return True
-        try:
-            l, t, r, b = win32gui.GetWindowRect(hwnd)
-        except Exception:
-            return True
-        area = (r - l) * (b - t)
-        if area > best_area:
-            best_area = area
-            best = hwnd
-        return True
-
-    win32gui.EnumWindows(enum_callback, None)
-    return best
-
-
 class OverlayWindow(QWidget):
-    """Frameless always-on-top overlay for a SINGLE monitored app.
+    """Frameless always-on-top overlay for a SINGLE monitored instance.
 
-    One instance per app; each tracks its own app's main-window HWND and shows
-    that app's real-time stats. MainWindow owns the dict of overlays.
+    One overlay per PID; each tracks that process's main-window HWND.
+    MainWindow owns the dict of overlays.
     """
 
-    def __init__(self, app_name: str, parent=None):
+    def __init__(self, app_name: str, parent=None, pid: int | None = None):
         super().__init__(parent)
         self._app_name = app_name
         self.setWindowFlags(
@@ -83,7 +45,7 @@ class OverlayWindow(QWidget):
         self._apply_style()
         theme.theme_changed_signal().connect(self._apply_style)
 
-        self._pid: int | None = None
+        self._pid: int | None = pid if pid else None
         self._tracked_hwnd: int | None = None  # cached main-window HWND for this app
         self._latest_frame: FrameData | None = None
         self._fps_ema: float | None = None
@@ -125,6 +87,17 @@ class OverlayWindow(QWidget):
     def set_click_through(self, enabled: bool):
         """When enabled, mouse events pass through the overlay to the app below."""
         self.setAttribute(Qt.WA_TransparentForMouseEvents, enabled)
+
+    def set_pid(self, pid: int | None) -> None:
+        """Bind this overlay to a PID so it can park before the first frame."""
+        if pid and pid != self._pid:
+            self._tracked_hwnd = None
+        self._pid = pid or None
+
+    def set_app_name(self, name: str) -> None:
+        self._app_name = name
+        if hasattr(self, "_title_label"):
+            self._title_label.setText(name)
 
     def set_capture_active(self, active: bool):
         """Follow the capture state; stopping retires the overlay.

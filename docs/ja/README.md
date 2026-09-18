@@ -1,18 +1,41 @@
 # IGP Performance Monitor
 
-[English](../en/README.md) · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](README.md)
-
-[ユーザーガイド](user-guide.md) · [トラブルシューティング](troubleshooting.md) · [全言語](../README.md)
-
-[![CI](https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml/badge.svg)](https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/MlsMoon/IGPPerformanceMonitor)](https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
-
-Windows 向けのリアルタイムグラフィックス性能モニターです。[Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1 をラップし、各フレームにシステム／プロセス指標（CPU、メモリ、NVIDIA GPU / VRAM）を付与して、PyQt5 でライブチャートを描画します。
-
 <p align="center">
   <img src="../../assets/logo.png" alt="IGP Performance Monitor" width="128" height="128">
 </p>
+
+<p align="center">
+  Windows 向けのリアルタイムグラフィックス性能モニターです。
+</p>
+
+<p align="center">
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest"><strong>ダウンロード</strong></a>
+  &nbsp;·&nbsp;
+  <a href="user-guide.md"><strong>ユーザーガイド</strong></a>
+  &nbsp;·&nbsp;
+  <a href="troubleshooting.md"><strong>トラブルシューティング</strong></a>
+  &nbsp;·&nbsp;
+  <a href="../../CHANGELOG.md"><strong>変更履歴</strong></a>
+</p>
+
+<p align="center">
+  <a href="../en/README.md">English</a>
+  ·
+  <a href="../zh-CN/README.md">简体中文</a>
+  ·
+  <a href="../zh-TW/README.md">繁體中文</a>
+  ·
+  <a href="README.md">日本語</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/MlsMoon/IGPPerformanceMonitor"></a>
+  <a href="user-guide.md"><img alt="User guide" src="https://img.shields.io/badge/docs-user%20guide-4dabf7"></a>
+  <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+</p>
+
+[Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1 をラップし、各フレームにシステム／プロセス指標（CPU、メモリ、NVIDIA GPU / VRAM）を付与して、PyQt5 でライブチャートを描画します。
 
 **管理者権限が必要です**（または Windows の *Performance Log Users* グループ）。PresentMon は ETW を使います。
 
@@ -30,7 +53,16 @@ Windows 向けのリアルタイムグラフィックス性能モニターです
 
 パッケージ版は起動直後に GitHub Releases を確認し、直前の公開版へロールバックできます。
 
-キャプチャ、チャート、CSV、オーバーレイの使い方は **[ユーザーガイド](user-guide.md)** を見てください。
+## ドキュメント
+
+| | リンク |
+|---|---|
+| キャプチャ、チャート、CSV、オーバーレイ | **[ユーザーガイド](user-guide.md)** |
+| うまくいかないとき | **[トラブルシューティング](troubleshooting.md)** |
+| 変更点 | **[変更履歴](../../CHANGELOG.md)** |
+| 他の言語 | [ドキュメント一覧](../README.md) |
+
+同じガイドはアプリ内の **ヘルプ → ユーザーマニュアル** からも開けます。
 
 ## 機能
 

@@ -15,7 +15,7 @@ import logging
 from src.core.capture_session import CaptureSession
 from src.core.metrics_schema import CSV_COLUMNS, frame_to_row
 from src.core.system_metrics import gpu_available
-from src.models import SessionConfig
+from src.models import SessionConfig, frame_series_key
 from src.selfcheck.report import Report
 from src.selfcheck.spec import Area
 
@@ -74,12 +74,28 @@ def run(report: Report, out_dir: str, app: list[str] | None = None,
         return
 
     by_app: dict[str, int] = {}
+    by_app_pids: dict[str, set[int]] = {}
     for frame in frames:
-        key = frame.application or f"pid_{frame.process_id}"
+        key = frame_series_key(frame)
         by_app[key] = by_app.get(key, 0) + 1
-    report.section("frames per app")
+        app = frame.application or "unknown"
+        by_app_pids.setdefault(app, set()).add(frame.process_id)
+    report.section("frames per instance")
     for name, count in sorted(by_app.items(), key=lambda kv: -kv[1])[:8]:
         report.fact(name, count)
+
+    report.section("instance identity")
+    store_keys = set(store.get_process_names())
+    report.fact("series keys", len(store_keys))
+    if store_keys != set(by_app):
+        report.error("DataStore series keys do not match captured frame PIDs")
+    for app, pids in sorted(by_app_pids.items()):
+        report.fact(f"{app} distinct PIDs", len(pids))
+        if len(pids) > 1:
+            split = sum(1 for k in by_app if k == app or k.startswith(app + "|"))
+            if split < len(pids):
+                report.error(
+                    f"{app} has {len(pids)} PIDs but only {split} series keys")
 
     _describe_columns(report, frames)
     _describe_stats(report, store, frames)
@@ -127,8 +143,15 @@ def _describe_stats(report, store, frames) -> None:
         stats = store.compute_stats()
         if not stats:
             report.suspect("compute_stats returned nothing for a non-empty capture")
-        for name, stat in list(stats.items())[:4]:
-            report.fact(name, stat)
+        else:
+            report.fact(
+                stats.process_name or "(all)",
+                f"avg_fps={stats.avg_fps} frames={stats.frame_count}",
+            )
+        for key in store.get_process_names()[:4]:
+            one = store.compute_stats(key)
+            if one is not None:
+                report.fact(key, f"avg_fps={one.avg_fps} frames={one.frame_count}")
     with report.step("history"):
         report.fact("elapsed seconds", round(store.get_elapsed_seconds(), 2))
         report.fact("frame count", store.get_frame_count())

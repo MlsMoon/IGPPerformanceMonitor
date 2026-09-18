@@ -7,6 +7,7 @@
 - `src/core/metrics_schema.py` — single source for CSV/FrameData fields
 - `src/core/metrics_sampler.py` — `SystemMetricsSampler(QThread)`; ~500ms system + per-process
 - `src/core/system_metrics.py` — psutil/NVML; `LOGICAL_CORES`, `process_memory_mb`, `sample_system`
+- `src/core/process_list.py` — one row per PID, window title, flash / switch-to; `find_main_window`
 
 ## Responsibilities
 
@@ -20,6 +21,8 @@ PresentMon emits frames → `_enrich_frame` stamps system/process fields from sa
 - **NVML total vs per-process are different APIs.** Instant AppGPU% can exceed TotalGPU% (~4%, up to +27). Expected, not a bug.
 - **Per-process VRAM is the Windows GPU perf counter, not NVML.** NVML process lists are empty under WDDM (empty App VRAM chart, all-NA `AppVramMB`). Use `sample_all_process_vram_mb()` via win32pdh `\GPU Process Memory(*)\Local Usage` (same source as Task Manager), `{pid: resident MB}` summed across adapters. Call **once per sampler tick**, then `vram_map.get(pid)`. Use **Local Usage**, never Dedicated Usage (commit space; can report more than the card). `sample_process_gpu` is GPU% only; its `vram_mb` stays `None`. Do not mix with system `gpu_vram_used_mb`.
 - **`_enrich_frame` stamps only.** Read `sampler.latest_system` / `latest_per_process(pid)`. No psutil/NVML in the frame loop.
+- **Duplicate exe names are different instances.** Two Unity Editors are two PIDs. The GUI lists each PID (window title + pid) and PresentMon is started with `--process_id`, not `--process_name`. `--process_name Unity.exe` still captures every Unity (headless / leftover name-wide config). Do not pass both a name and a pid for the same exe — PresentMon ORs them and you get every instance.
+- **Window title is Task Manager's Apps-list identity.** `process_list.list_process_instances()` does one `EnumWindows` and keeps the largest visible titled non-tool window per PID (same heuristic as the overlay). Click-to-flash / Switch-to live in this module, not in the widget.
 - **Dynamic PIDs:** `configure` seeds handles from `process_ids` + `process_names`; each tick `_refresh_dynamic_pids()`; wrapper `track_pid(pid)` only registers — sampling stays on the sampler thread.
 - **New session must clear `_latest`.** `configure` is a session boundary. Otherwise the first frames inherit the previous session's CPU/GPU/RAM/VRAM.
 - **PresentMon 2.4.1 names are short** (`CPUBusy` / `GPUTime` / `Runtime`). Aliases live on `metrics_schema.CSV_COLUMNS`.
@@ -36,7 +39,8 @@ PresentMon emits frames → `_enrich_frame` stamps system/process fields from sa
 - [ ] Dynamic PIDs still discovered; wrapper still registers real frame PIDs
 - [ ] Per-process VRAM → `Local Usage` perf counter; no truthiness drop of `0.0`; run `verify-metrics`
 - [ ] Snapshot-only fields stay off FrameData/CSV
+- [ ] Dual-instance: GUI capture uses `--process_id`; charts/overlays must not merge same-exe PIDs
 - [ ] PresentMon/CSV columns start in `metrics_schema.CSV_COLUMNS`
 
 ---
-last_updated: 2026-09-17
+last_updated: 2026-09-18

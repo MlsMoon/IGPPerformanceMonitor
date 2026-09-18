@@ -1,18 +1,41 @@
 # IGP Performance Monitor
 
-[English](README.md) · [简体中文](../zh-CN/README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md)
-
-[User guide](user-guide.md) · [Troubleshooting](troubleshooting.md) · [All languages](../README.md)
-
-[![CI](https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml/badge.svg)](https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/MlsMoon/IGPPerformanceMonitor)](https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
-
-Windows desktop monitor for real-time graphics performance. The app wraps [Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1, enriches every frame with system and process metrics (CPU, RAM, NVIDIA GPU / VRAM), and draws live charts in PyQt5.
-
 <p align="center">
   <img src="../../assets/logo.png" alt="IGP Performance Monitor" width="128" height="128">
 </p>
+
+<p align="center">
+  Windows desktop monitor for real-time graphics performance.
+</p>
+
+<p align="center">
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest"><strong>Download</strong></a>
+  &nbsp;·&nbsp;
+  <a href="user-guide.md"><strong>User guide</strong></a>
+  &nbsp;·&nbsp;
+  <a href="troubleshooting.md"><strong>Troubleshooting</strong></a>
+  &nbsp;·&nbsp;
+  <a href="../../CHANGELOG.md"><strong>Changelog</strong></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a>
+  ·
+  <a href="../zh-CN/README.md">简体中文</a>
+  ·
+  <a href="../zh-TW/README.md">繁體中文</a>
+  ·
+  <a href="../ja/README.md">日本語</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/MlsMoon/IGPPerformanceMonitor"></a>
+  <a href="user-guide.md"><img alt="User guide" src="https://img.shields.io/badge/docs-user%20guide-4dabf7"></a>
+  <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+</p>
+
+The app wraps [Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1, enriches every frame with system and process metrics (CPU, RAM, NVIDIA GPU / VRAM), and draws live charts in PyQt5.
 
 **Requires Administrator** (or membership in the Windows *Performance Log Users* group). PresentMon uses ETW.
 
@@ -30,11 +53,20 @@ Download the latest **installer** or portable EXE from [GitHub Releases](https:/
 
 Packaged builds check GitHub Releases shortly after launch and can roll back to the previous published version.
 
-How to capture, read charts, export CSV, and use the overlay: **[User guide](user-guide.md)**.
+## Documentation
+
+| | Link |
+|---|---|
+| How to capture, read charts, export CSV, and use the overlay | **[User guide](user-guide.md)** |
+| When something fails | **[Troubleshooting](troubleshooting.md)** |
+| What changed | **[Changelog](../../CHANGELOG.md)** |
+| Other languages | [Documentation index](../README.md) |
+
+The same user guide is in the app under **Help → User Manual**.
 
 ## Features
 
-- Multi-app capture (several process names at once)
+- Multi-app capture (several instances at once, including two copies of the same exe)
 - Live charts: FPS, frame time, CPU / GPU / RAM / VRAM, per-app and system
 - Always-on-top overlay that follows the target window
 - CSV export / import with offline stutter analysis
@@ -103,7 +135,7 @@ The `capture` area needs admin: `Scripts\selfcheck.bat capture -a App.exe -s 8`.
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - [SECURITY.md](../../SECURITY.md)
 - [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
-- [CHANGELOG.md](../../CHANGELOG.md)
+- [CHANGELOG.md](../../CHANGELOG.md) · [CHANGELOG.zh-CN.md](../../CHANGELOG.zh-CN.md)
 
 ## License
 

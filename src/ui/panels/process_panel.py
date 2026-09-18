@@ -1,22 +1,63 @@
-"""Process selection panel — two-panel design with arrow buttons."""
+"""Process selection panel — two-panel design with arrow buttons.
+
+Each running ``.exe`` is one row per PID (Task Manager Details), labelled with
+the main-window title so two Unity Editors are distinct. Capture uses
+``--process_id`` for those rows. Click a row to flash its window; right-click
+Switch to, like Task Manager.
+"""
 
 from PyQt5.QtCore import pyqtSignal, Qt, QTimer
 from PyQt5.QtWidgets import (
     QGroupBox, QHBoxLayout, QVBoxLayout, QPushButton,
-    QLineEdit, QListWidget, QListWidgetItem, QLabel, QSpinBox,
+    QLineEdit, QListWidget, QListWidgetItem, QLabel, QSpinBox, QMenu,
 )
 
 from src.i18n import tr
-from src.core.system_metrics import get_running_process_names
+from src.core.process_list import (
+    ProcessInstance,
+    flash_process_window,
+    instance_from_persist,
+    list_process_instances,
+    switch_to_process_window,
+)
 from src.core import app_config
 from src.ui import theme
 
 
-def _process_item(name: str) -> QListWidgetItem:
-    """List entry whose tooltip carries the full name (the label may be elided)."""
-    item = QListWidgetItem(name)
-    item.setToolTip(name)
+_ROLE_INST = Qt.UserRole
+_ROLE_SEARCH = Qt.UserRole + 1
+
+
+def _process_item(inst: ProcessInstance) -> QListWidgetItem:
+    """List entry: elided label, full identity in tooltip + UserRole."""
+    item = QListWidgetItem(inst.list_label())
+    item.setToolTip(inst.tooltip())
+    item.setData(_ROLE_INST, {
+        "pid": inst.pid,
+        "name": inst.name,
+        "title": inst.title,
+        "exe_path": inst.exe_path,
+        "name_wide": inst.name_wide,
+    })
+    item.setData(_ROLE_SEARCH, inst.search_blob())
     return item
+
+
+def _item_instance(item: QListWidgetItem | None) -> ProcessInstance | None:
+    if item is None:
+        return None
+    data = item.data(_ROLE_INST)
+    if isinstance(data, ProcessInstance):
+        return data
+    if isinstance(data, dict) and data.get("name"):
+        return ProcessInstance(
+            pid=int(data.get("pid") or 0),
+            name=str(data.get("name") or ""),
+            title=str(data.get("title") or ""),
+            exe_path=str(data.get("exe_path") or ""),
+            name_wide=bool(data.get("name_wide")),
+        )
+    return None
 
 
 class ProcessPanel(QGroupBox):
@@ -27,9 +68,10 @@ class ProcessPanel(QGroupBox):
 
     def __init__(self, parent=None):
         super().__init__(tr("process_selection"), parent)
-        self._process_names: set[str] = set()
+        self._targets: list[ProcessInstance] = []
         # Capture state mirrored from state_changed; drives the toggle button.
         self._running = False
+        self._refreshing = False
         self._init_ui()
 
     def _init_ui(self):
@@ -96,6 +138,12 @@ class ProcessPanel(QGroupBox):
 
         layout.addLayout(panels_row, 1)
 
+        hint = QLabel(tr("process_instance_hint"))
+        hint.setWordWrap(True)
+        hint.setObjectName("ProcessInstanceHint")
+        self._hint_label = hint
+        layout.addWidget(hint)
+
         # === Refresh button ===
         refresh_btn = QPushButton(tr("btn_refresh"))
         refresh_btn.clicked.connect(self._refresh_available)
@@ -123,23 +171,14 @@ class ProcessPanel(QGroupBox):
         timer_row.addStretch()
         layout.addLayout(timer_row)
 
-        # Restore last session's monitored processes (before refreshing the
-        # available list so they're excluded). Stale names are harmless — the
-        # user can remove them; they only matter once the app actually runs.
-        for name in app_config.get("monitored_processes") or []:
-            if name not in self._process_names:
-                self._process_names.add(name)
-                self._monitored_list.addItem(_process_item(name))
-
-        # Initial population
+        self._restore_targets()
         self._refresh_available()
 
         # Theme: apply once + follow changes (panel used to be fully unstyled/hardcoded)
         self._apply_panel_styles()
         theme.theme_changed_signal().connect(self._on_theme_changed)
 
-    @staticmethod
-    def _make_list(object_name: str, on_double_click) -> QListWidget:
+    def _make_list(self, object_name: str, on_double_click) -> QListWidget:
         """A process list that elides long names instead of scrolling sideways."""
         widget = QListWidget()
         widget.setObjectName(object_name)
@@ -149,6 +188,10 @@ class ProcessPanel(QGroupBox):
         widget.setUniformItemSizes(True)
         widget.setMinimumHeight(150)
         widget.itemDoubleClicked.connect(on_double_click)
+        widget.itemClicked.connect(self._on_item_clicked)
+        widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        widget.customContextMenuRequested.connect(
+            lambda pos, w=widget: self._on_list_menu(w, pos))
         return widget
 
     # ------------------------------------------------------------------
@@ -164,6 +207,8 @@ class ProcessPanel(QGroupBox):
         )
         self._avail_label.setStyleSheet(label_qss)
         self._mon_label.setStyleSheet(label_qss)
+        self._hint_label.setStyleSheet(
+            f"color: {t.text_muted}; font-size: 8pt; padding: 0 0 2px 0;")
         self._add_btn.setStyleSheet(self._arrow_qss(t, t.good))
         self._remove_btn.setStyleSheet(self._arrow_qss(t, t.bad))
         self._apply_capture_btn()
@@ -215,7 +260,7 @@ class ProcessPanel(QGroupBox):
             self.start_requested.emit()
 
     # ------------------------------------------------------------------
-    # Search
+    # Search / locate
     # ------------------------------------------------------------------
 
     def _on_search_changed(self, text: str):
@@ -223,31 +268,88 @@ class ProcessPanel(QGroupBox):
         self._search_timer.start()
 
     def _apply_search(self):
-        """Filter available list by current search text, in one batched update."""
+        """Filter available list by name / title / PID, in one batched update."""
         t = self._search_input.text().lower()
         lw = self._available_list
         lw.setUpdatesEnabled(False)
         try:
             for i in range(lw.count()):
                 item = lw.item(i)
-                item.setHidden(t not in item.text().lower())
+                blob = item.data(_ROLE_SEARCH) or item.text()
+                item.setHidden(t not in str(blob).lower())
         finally:
             lw.setUpdatesEnabled(True)
+
+    def _on_item_clicked(self, item: QListWidgetItem):
+        """Flash the instance's window so the row maps to a real HWND."""
+        if self._refreshing:
+            return
+        inst = _item_instance(item)
+        if inst is not None and inst.pid:
+            flash_process_window(inst.pid)
+
+    def _on_list_menu(self, widget: QListWidget, pos):
+        item = widget.itemAt(pos)
+        inst = _item_instance(item)
+        if inst is None or not inst.pid:
+            return
+        menu = QMenu(widget)
+        switch_act = menu.addAction(tr("menu_switch_to"))
+        chosen = menu.exec_(widget.mapToGlobal(pos))
+        if chosen is switch_act:
+            switch_to_process_window(inst.pid)
 
     # ------------------------------------------------------------------
     # Available list
     # ------------------------------------------------------------------
 
     def _refresh_available(self):
-        """Repopulate available process list from running processes."""
-        monitored = self._process_names
-        processes = get_running_process_names()
-        self._available_list.clear()
-        for name in processes:
-            if name not in monitored:
-                self._available_list.addItem(_process_item(name))
-        # Re-apply search filter immediately (no debounce after a refresh)
-        self._apply_search()
+        """Repopulate available process list from running instances."""
+        self._refreshing = True
+        try:
+            running = list_process_instances()
+            self._rebind_targets(running)
+            self._available_list.clear()
+            for inst in running:
+                if self._is_monitored(inst):
+                    continue
+                self._available_list.addItem(_process_item(inst))
+            self._rebuild_monitored_list()
+            self._apply_search()
+        finally:
+            self._refreshing = False
+
+    def _rebind_targets(self, running: list[ProcessInstance]) -> None:
+        """Refresh titles/PIDs of persisted rows from the live process table."""
+        rebound: list[ProcessInstance] = []
+        for target in self._targets:
+            if target.name_wide or not target.pid:
+                live = instance_from_persist(
+                    target.to_persist(), running=running)
+                rebound.append(live or target)
+                continue
+            live = instance_from_persist(target.to_persist(), running=running)
+            rebound.append(live or target)
+        self._targets = rebound
+
+    def _rebuild_monitored_list(self):
+        self._monitored_list.clear()
+        for target in self._targets:
+            self._monitored_list.addItem(_process_item(target))
+
+    def _is_monitored(self, inst: ProcessInstance) -> bool:
+        for target in self._targets:
+            if target.pid and inst.pid and target.pid == inst.pid:
+                return True
+            if (target.name_wide or not target.pid) and (
+                    target.name.lower() == inst.name.lower()):
+                return True
+        return False
+
+    def _target_identity(self, inst: ProcessInstance) -> tuple:
+        if inst.pid and not inst.name_wide:
+            return ("pid", inst.pid)
+        return ("name", inst.name.lower())
 
     # ------------------------------------------------------------------
     # Add / Remove
@@ -255,36 +357,85 @@ class ProcessPanel(QGroupBox):
 
     def _add_selected(self):
         """Move selected items from Available → Monitored."""
+        seen = {self._target_identity(t) for t in self._targets}
         for item in self._available_list.selectedItems():
-            name = item.text()
-            if name not in self._process_names:
-                self._process_names.add(name)
-                self._monitored_list.addItem(_process_item(name))
+            inst = _item_instance(item)
+            if inst is None:
+                continue
+            ident = self._target_identity(inst)
+            if ident not in seen:
+                self._targets.append(inst)
+                seen.add(ident)
+                self._monitored_list.addItem(_process_item(inst))
             self._available_list.takeItem(self._available_list.row(item))
         self._persist_processes()
 
     def _remove_selected(self):
         """Move selected items from Monitored → Available."""
         search = self._search_input.text().lower()
-        for item in self._monitored_list.selectedItems():
-            name = item.text()
-            self._process_names.discard(name)
-            self._monitored_list.takeItem(self._monitored_list.row(item))
-            # Put back in available if matches search (or if no filter)
-            if not search or search in name.lower():
-                self._available_list.addItem(_process_item(name))
+        remaining: list[ProcessInstance] = []
+        selected_rows = {self._monitored_list.row(i) for i in self._monitored_list.selectedItems()}
+        for row in range(self._monitored_list.count()):
+            item = self._monitored_list.item(row)
+            inst = _item_instance(item)
+            if inst is None:
+                continue
+            if row in selected_rows:
+                blob = (item.data(_ROLE_SEARCH) or item.text() or "").lower()
+                if not search or search in blob:
+                    self._available_list.addItem(_process_item(inst))
+            else:
+                remaining.append(inst)
+        self._targets = remaining
+        self._rebuild_monitored_list()
         self._persist_processes()
+
+    # ------------------------------------------------------------------
+    # Persist / restore
+    # ------------------------------------------------------------------
+
+    def _restore_targets(self):
+        running = list_process_instances()
+        raw = app_config.get("monitored_targets")
+        rows: list = []
+        if isinstance(raw, list) and raw:
+            rows = raw
+        else:
+            rows = list(app_config.get("monitored_processes") or [])
+        seen: set[tuple] = set()
+        for row in rows:
+            inst = instance_from_persist(row, running=running)
+            if inst is None:
+                continue
+            ident = self._target_identity(inst)
+            if ident in seen:
+                continue
+            seen.add(ident)
+            self._targets.append(inst)
+
+    def _persist_processes(self):
+        """Save the monitored set so it survives restarts."""
+        app_config.set(
+            "monitored_targets",
+            [t.to_persist() for t in self._targets],
+        )
+        # Keep the old key as exe names so a downgrade still has a list.
+        names = sorted({t.name for t in self._targets})
+        app_config.set("monitored_processes", names)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def get_process_names(self) -> list[str]:
-        return list(self._process_names)
+    def get_targets(self) -> list[ProcessInstance]:
+        return list(self._targets)
 
-    def _persist_processes(self):
-        """Save the monitored set so it survives restarts."""
-        app_config.set("monitored_processes", sorted(self._process_names))
+    def get_process_names(self) -> list[str]:
+        """Name-wide targets only (legacy / unresolved). PID rows use ids."""
+        return [t.name for t in self._targets if t.name_wide or not t.pid]
+
+    def get_process_ids(self) -> list[int]:
+        return [t.pid for t in self._targets if t.pid and not t.name_wide]
 
     def get_timed_seconds(self) -> int:
         return self._timer_spin.value()
@@ -300,4 +451,17 @@ class ProcessPanel(QGroupBox):
         self._timer_spin.setEnabled(not running)
 
     def has_processes(self) -> bool:
-        return len(self._process_names) > 0
+        return len(self._targets) > 0
+
+    def live_capture_targets(self) -> tuple[list[ProcessInstance], list[str]]:
+        """Resolve PIDs now: (instance targets, leftover name-wide exe names)."""
+        running = list_process_instances()
+        self._rebind_targets(running)
+        self._rebuild_monitored_list()
+        live_pids = {p.pid for p in running}
+        instances = [
+            t for t in self._targets
+            if t.pid and not t.name_wide and t.pid in live_pids
+        ]
+        names = [t.name for t in self._targets if t.name_wide or not t.pid]
+        return instances, names

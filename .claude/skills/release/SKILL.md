@@ -33,7 +33,12 @@ Both branches are **protected** (no force-push, no delete). Do not recreate `mai
 
 ## Language
 
-Project-owned skills, `CLAUDE.md`, source comments, changelog, and commit messages are **English**. The only Chinese in-tree is UI copy in `src/i18n/zh_CN.py`.
+Project-owned skills, `CLAUDE.md`, source comments, and commit messages are **English**. Do not add Chinese comments or skill prose.
+
+User-facing changelog is bilingual: `CHANGELOG.md` (English, canonical) and
+`CHANGELOG.zh-CN.md` (Simplified Chinese). Write both in the same detail —
+the Chinese file is not a shorter summary. Other Chinese user copy lives in
+`src/i18n/zh_CN.py` and `docs/zh-CN/` (`docs/zh-TW/` is Traditional).
 
 ## Version
 
@@ -41,6 +46,7 @@ If the user names a version (`release 0.2.0`), use that. **If they do not, bump 
 
 ## Rules
 
+- Changelog is bilingual and detailed (`CHANGELOG.md` + `CHANGELOG.zh-CN.md`; see `modules/01-prepare.md`). GitHub Release body is `Scripts/extract_release_notes.py`, **never** `generate_release_notes` / `--generate-notes`.
 - Do not stop to ask "continue?" between phases.
 - Headless capture is best-effort (needs admin). Skip if not admin **and** the change is not on the metrics pipeline. Pipeline changes must use `Scripts\capture_debug.bat`.
 - Tag format is `v` + `VERSION` (example `v0.2.5`). Annotated (`-a`). Lightweight tags are rejected by `git describe` and by CI.

@@ -1,18 +1,41 @@
 # IGP Performance Monitor
 
-[English](../en/README.md) · [简体中文](README.md) · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md)
-
-[使用指南](user-guide.md) · [排障](troubleshooting.md) · [全部语言](../README.md)
-
-[![CI](https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml/badge.svg)](https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/MlsMoon/IGPPerformanceMonitor)](https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
-
-Windows 桌面端实时图形性能监视器。程序封装 [Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1，为每一帧补上系统 / 进程指标（CPU、内存、NVIDIA GPU / 显存），并用 PyQt5 绘制实时图表。
-
 <p align="center">
   <img src="../../assets/logo.png" alt="IGP Performance Monitor" width="128" height="128">
 </p>
+
+<p align="center">
+  Windows 桌面端实时图形性能监视器。
+</p>
+
+<p align="center">
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest"><strong>下载</strong></a>
+  &nbsp;·&nbsp;
+  <a href="user-guide.md"><strong>使用指南</strong></a>
+  &nbsp;·&nbsp;
+  <a href="troubleshooting.md"><strong>排障</strong></a>
+  &nbsp;·&nbsp;
+  <a href="../../CHANGELOG.zh-CN.md"><strong>更新记录</strong></a>
+</p>
+
+<p align="center">
+  <a href="../en/README.md">English</a>
+  ·
+  <a href="README.md">简体中文</a>
+  ·
+  <a href="../zh-TW/README.md">繁體中文</a>
+  ·
+  <a href="../ja/README.md">日本語</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MlsMoon/IGPPerformanceMonitor/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/MlsMoon/IGPPerformanceMonitor/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/MlsMoon/IGPPerformanceMonitor"></a>
+  <a href="user-guide.md"><img alt="使用指南" src="https://img.shields.io/badge/docs-%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97-c41e3a"></a>
+  <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+</p>
+
+程序封装 [Intel PresentMon](https://github.com/GameTechDev/PresentMon) 2.4.1，为每一帧补上系统 / 进程指标（CPU、内存、NVIDIA GPU / 显存），并用 PyQt5 绘制实时图表。
 
 **需要管理员权限**（或加入 Windows「Performance Log Users」组）。PresentMon 使用 ETW。
 
@@ -30,7 +53,16 @@ Windows 桌面端实时图形性能监视器。程序封装 [Intel PresentMon](h
 
 打包版启动后会向 GitHub Releases 检查更新，也可以回退到上一份已发布版本。
 
-采集、读图、导出 CSV、叠加窗：见 **[使用指南](user-guide.md)**。
+## 文档
+
+| | 链接 |
+|---|---|
+| 采集、读图、导出 CSV、叠加窗 | **[使用指南](user-guide.md)** |
+| 出问题时 | **[排障](troubleshooting.md)** |
+| 版本变化 | **[更新记录](../../CHANGELOG.zh-CN.md)** |
+| 其他语言 | [文档目录](../README.md) |
+
+同一套使用指南也在应用内 **帮助 → 用户手册**。
 
 ## 功能
 
@@ -103,7 +135,7 @@ python -m src.tests
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - [SECURITY.md](../../SECURITY.md)
 - [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
-- [CHANGELOG.md](../../CHANGELOG.md)
+- [CHANGELOG.zh-CN.md](../../CHANGELOG.zh-CN.md)
 
 ## 许可
 

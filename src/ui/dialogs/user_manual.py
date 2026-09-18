@@ -2,8 +2,11 @@
 
 from pathlib import Path
 
-from PyQt5.QtCore import Qt, QTimer, QUrl
-from PyQt5.QtGui import QColor, QDesktopServices, QPalette, QTextCursor
+from PyQt5.QtCore import QEvent, Qt, QTimer, QUrl
+from PyQt5.QtGui import (
+    QColor, QDesktopServices, QImage, QPalette, QPixmap, QTextCharFormat,
+    QTextCursor, QTextDocument,
+)
 from PyQt5.QtWidgets import (
     QDialog, QHBoxLayout, QPushButton, QSplitter, QTextBrowser,
     QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
@@ -11,7 +14,7 @@ from PyQt5.QtWidgets import (
 
 from src.core.app_info import resource_root
 from src.core.user_manual import (
-    PAGES, OutlineNode, is_toc_title, load_page,
+    PAGES, OutlineNode, docs_root, is_toc_title, load_page,
     page_outline, page_path, prepare_in_app_markdown, resolve_doc_href,
 )
 from src.i18n import tr
@@ -27,6 +30,7 @@ class UserManualDialog(QDialog):
         self.resize(960, 640)
         self._current_path: Path | None = None
         self._outline: list[OutlineNode] = []
+        self._fitting = False
 
         root = QVBoxLayout(self)
         splitter = QSplitter(Qt.Horizontal, self)
@@ -49,7 +53,9 @@ class UserManualDialog(QDialog):
         self._browser = QTextBrowser(right)
         self._browser.setObjectName("ManualBrowser")
         self._browser.setOpenLinks(False)
+        self._browser.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._browser.anchorClicked.connect(self._on_anchor)
+        self._browser.viewport().installEventFilter(self)
         right_layout.addWidget(self._browser, 1)
 
         btn_row = QHBoxLayout()
@@ -68,6 +74,11 @@ class UserManualDialog(QDialog):
         self._apply_theme()
         theme.theme_changed_signal().connect(self._on_theme_changed)
         self._rebuild_tree()
+
+    def eventFilter(self, obj, event):
+        if obj is self._browser.viewport() and event.type() == QEvent.Resize:
+            QTimer.singleShot(0, self._fit_images)
+        return super().eventFilter(obj, event)
 
     def _rebuild_tree(self):
         self._tree.blockSignals(True)
@@ -126,8 +137,11 @@ class UserManualDialog(QDialog):
 
     def _show_file(self, path: Path):
         self._current_path = path
+        parent = path.parent.resolve()
         self._browser.setSearchPaths([
-            str(path.parent),
+            str(parent),
+            str(docs_root()),
+            str(docs_root() / "images"),
             str(resource_root() / "assets"),
             str(resource_root()),
         ])
@@ -140,28 +154,98 @@ class UserManualDialog(QDialog):
             self._browser.setPlainText(tr("user_manual_empty"))
             return
         self._outline = page_outline(raw)
+        # Relative ``../images/<locale>/shot.png`` resolves against the page dir.
+        self._browser.document().setBaseUrl(QUrl.fromLocalFile(str(parent) + "/"))
         self._browser.setMarkdown(prepare_in_app_markdown(raw))
+        self._browser.document().setBaseUrl(QUrl.fromLocalFile(str(parent) + "/"))
         self._apply_document_style()
         self._apply_heading_anchors(self._outline)
+        self._fit_images()
 
     def _apply_heading_anchors(self, nodes: list[OutlineNode]):
-        """Name each heading block so the tree can scrollToAnchor."""
+        """Invisible named anchors — do not turn headings into underlined links."""
         by_title = {node.title: node.slug for node in nodes}
         doc = self._browser.document()
-        cursor = QTextCursor(doc)
+        t = theme.current_theme()
+        blocks = []
         block = doc.begin()
         while block.isValid():
+            blocks.append(block)
+            block = block.next()
+        cursor = QTextCursor(doc)
+        for block in reversed(blocks):
             text = block.text().strip()
             slug = by_title.get(text)
             level = block.blockFormat().headingLevel()
-            if slug and (level > 0 or text in by_title) and not is_toc_title(text):
-                cursor.setPosition(block.position())
-                cursor.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
-                fmt = cursor.charFormat()
-                fmt.setAnchor(True)
-                fmt.setAnchorNames([slug])
-                cursor.mergeCharFormat(fmt)
-            block = block.next()
+            if not slug or is_toc_title(text):
+                continue
+            if level <= 0 and text not in by_title:
+                continue
+            fmt = QTextCharFormat()
+            fmt.setAnchor(True)
+            fmt.setAnchorNames([slug])
+            fmt.setForeground(QColor(t.text_primary))
+            fmt.setFontUnderline(False)
+            cursor.setPosition(block.position())
+            cursor.insertText("\u200b", fmt)
+
+    def _natural_image_size(self, name: str) -> tuple[int, int]:
+        doc = self._browser.document()
+        url = QUrl(name)
+        res = doc.resource(QTextDocument.ImageResource, url)
+        if res is None:
+            res = doc.resource(QTextDocument.ImageResource, QUrl.fromLocalFile(name))
+        if isinstance(res, QPixmap) and not res.isNull():
+            return res.width(), res.height()
+        if isinstance(res, QImage) and not res.isNull():
+            return res.width(), res.height()
+        path = url.toLocalFile() if url.isLocalFile() else name
+        loaded = QImage(path)
+        if loaded.isNull() and self._current_path is not None:
+            loaded = QImage(str((self._current_path.parent / name).resolve()))
+        if loaded.isNull():
+            return (0, 0)
+        return loaded.width(), loaded.height()
+
+    def _fit_images(self):
+        """Scale markdown images to the viewport so they are not clipped."""
+        if self._fitting:
+            return
+        doc = self._browser.document()
+        max_w = self._browser.viewport().width() - 8
+        if max_w < 80:
+            return
+        self._fitting = True
+        try:
+            cursor = QTextCursor(doc)
+            block = doc.begin()
+            while block.isValid():
+                it = block.begin()
+                while not it.atEnd():
+                    frag = it.fragment()
+                    if frag.isValid():
+                        cf = frag.charFormat()
+                        if cf.isImageFormat():
+                            img_fmt = cf.toImageFormat()
+                            nw, nh = self._natural_image_size(img_fmt.name())
+                            if nw <= 0 or nh <= 0:
+                                nw, nh = int(img_fmt.width()), int(img_fmt.height())
+                            if nw > max_w > 0:
+                                nh = max(1, int(nh * (max_w / nw)))
+                                nw = max_w
+                            if nw > 0 and nh > 0:
+                                img_fmt.setWidth(nw)
+                                img_fmt.setHeight(nh)
+                                cursor.setPosition(frag.position())
+                                cursor.setPosition(
+                                    frag.position() + frag.length(),
+                                    QTextCursor.KeepAnchor,
+                                )
+                                cursor.setCharFormat(img_fmt)
+                    it += 1
+                block = block.next()
+        finally:
+            self._fitting = False
 
     def _on_anchor(self, url: QUrl):
         if url.scheme() in ("http", "https"):
@@ -187,36 +271,47 @@ class UserManualDialog(QDialog):
             self._browser.scrollToAnchor(fragment)
 
     def _apply_document_style(self):
-        """Body text colour; links follow the theme — never the default web blue."""
+        """Body text; links stay muted. Selection is a gray wash, not accent."""
         t = theme.current_theme()
         self._browser.document().setDefaultStyleSheet(
             f"body {{ color: {t.text_primary}; }}"
-            f"a {{ color: {t.text_secondary}; text-decoration: underline;"
-            f" text-decoration-color: {t.text_muted}; }}"
+            f"a {{ color: {t.text_muted}; text-decoration: underline;"
+            f" text-decoration-color: {t.border}; }}"
             f"h1, h2, h3, h4, h5, h6 {{ color: {t.text_primary}; }}"
         )
         pal = self._browser.palette()
         pal.setColor(QPalette.Base, QColor(t.card_bg))
         pal.setColor(QPalette.Text, QColor(t.text_primary))
-        pal.setColor(QPalette.Link, QColor(t.text_secondary))
+        pal.setColor(QPalette.Link, QColor(t.text_muted))
         pal.setColor(QPalette.LinkVisited, QColor(t.text_muted))
+        pal.setColor(QPalette.Highlight, QColor(t.hover_bg))
+        pal.setColor(QPalette.HighlightedText, QColor(t.text_primary))
+        pal.setColor(QPalette.Inactive, QPalette.Highlight, QColor(t.hover_bg))
+        pal.setColor(
+            QPalette.Inactive, QPalette.HighlightedText, QColor(t.text_primary))
         self._browser.setPalette(pal)
 
     def _apply_theme(self):
         t = theme.current_theme()
+        # Reading chrome: gray wash, not the purple list selection or the
+        # accent-blue QTextEdit selection from app_qss.
         self._tree.setStyleSheet(
             f"QTreeWidget#ManualTree {{ background-color: {t.panel_bg};"
             f" color: {t.text_primary}; border: none; }}"
             f"QTreeWidget#ManualTree::item {{ padding: 4px 6px; }}"
+            f"QTreeWidget#ManualTree::item:hover {{"
+            f" background-color: {t.hover_bg}; }}"
             f"QTreeWidget#ManualTree::item:selected {{"
-            f" background-color: {t.selection}; color: {t.selection_text}; }}"
+            f" background-color: {t.hover_bg}; color: {t.text_primary}; }}"
             f"QTreeWidget#ManualTree::item:selected:!active {{"
-            f" background-color: {t.selection}; color: {t.selection_text}; }}"
+            f" background-color: {t.hover_bg}; color: {t.text_primary}; }}"
             f"QTreeWidget#ManualTree::branch {{ background: {t.panel_bg}; }}"
         )
         self._browser.setStyleSheet(
-            f"QTextBrowser {{ background-color: {t.card_bg}; color: {t.text_primary};"
-            f" border: none; }}"
+            f"QTextBrowser#ManualBrowser {{ background-color: {t.card_bg};"
+            f" color: {t.text_primary}; border: none;"
+            f" selection-background-color: {t.hover_bg};"
+            f" selection-color: {t.text_primary}; }}"
         )
         self._apply_document_style()
 

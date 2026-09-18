@@ -3,7 +3,8 @@
 ## Key files
 
 - `.github/workflows/release.yml`
-- `Scripts/build.bat` / `Scripts/build_installer.bat` / `Scripts/generate_manifest.py`
+- `Scripts/build.bat` / `Scripts/build_installer.bat` / `Scripts/generate_manifest.py` / `Scripts/extract_release_notes.py`
+- `CHANGELOG.md` / `CHANGELOG.zh-CN.md`
 - `Scripts/installer.iss`
 - `src/core/release_manifest.py`
 
@@ -24,7 +25,7 @@ After the tag exists, **GitHub Actions** builds and publishes. The agent watches
 
 1. `gh run watch` / `gh run list --workflow=release.yml` for the tag push
 2. When green, open `https://github.com/MlsMoon/IGPPerformanceMonitor/releases/tag/vX.Y.Z`
-3. Confirm all four assets exist
+3. Confirm all four assets exist **and** the Release body has `## English` plus `## 简体中文` (not only a compare link)
 4. Fetch the latest manifest and check:
    - valid JSON, no UTF-8 BOM
    - `version` == `VERSION`
@@ -43,10 +44,12 @@ curl -sL -A IGPPerformanceMonitor https://github.com/MlsMoon/IGPPerformanceMonit
 Scripts\build.bat --no-pause
 Scripts\build_installer.bat
 python Scripts\generate_manifest.py
-gh release create vX.Y.Z dist\IGPPerformanceMonitor.exe dist\auto_updater.exe dist\IGPPerformanceMonitor-Setup-X.Y.Z.exe dist\app_manifest.json --title "IGP Performance Monitor X.Y.Z" --generate-notes
+python Scripts\extract_release_notes.py --version X.Y.Z --out build\generated\release_notes.md
+gh release create vX.Y.Z dist\IGPPerformanceMonitor.exe dist\auto_updater.exe dist\IGPPerformanceMonitor-Setup-X.Y.Z.exe dist\app_manifest.json --title "IGP Performance Monitor X.Y.Z" --notes-file build\generated\release_notes.md
 ```
 
-Still no object-storage upload. Still no keys in the repo.
+Still no object-storage upload. Still no keys in the repo. Do **not** pass
+`--generate-notes`: that body is only `Full Changelog: vA...vB`.
 
 ## Pitfalls
 
@@ -56,6 +59,10 @@ Still no object-storage upload. Still no keys in the repo.
 - Fetching `previous` uses the *current* latest release; after publish, "latest" becomes this version — generate the file **before** creating the Release.
 - GitHub requires a User-Agent on downloads.
 - Empty SHA256 must fail the job, not publish a broken client.
+- **Release body comes from the changelog files**, via
+  `Scripts/extract_release_notes.py` → `body_path`.
+  `generate_release_notes: false` is required. Auto-notes were how 0.1.0–0.1.3
+  shipped with nothing but a compare link.
 
 ## Checklist
 
@@ -63,3 +70,4 @@ Still no object-storage upload. Still no keys in the repo.
 - [ ] Four assets present
 - [ ] Manifest JSON valid, no BOM, hashes filled
 - [ ] In-app latest URL returns this version
+- [ ] Release body is bilingual (English + 简体中文), not only a compare link

@@ -28,7 +28,7 @@ TRANSLATIONS: dict[str, str] = {
     "status_error": "Error: {}",
     "no_processes_title": "No Processes",
     "no_processes_text": (
-        "Please add at least one process name to monitor.\n\n"
+        "Please add at least one process to monitor.\n\n"
         "Leave empty to capture ALL processes (not recommended for live monitoring)."
     ),
     "capture_error_title": "Capture Error",
@@ -44,12 +44,22 @@ TRANSLATIONS: dict[str, str] = {
     "btn_start": "▶ Start Capture",
     "btn_stop": "■ Stop",
     "label_auto_stop": "Auto-stop after (seconds, 0=unlimited):",
-    "placeholder_search": "Search processes...",
+    "placeholder_search": "Search name, window title, or PID...",
     "available_processes": "Available Processes",
     "monitored_processes": "Monitored Processes",
     "tooltip_add": "Add to monitored",
     "tooltip_remove": "Remove from monitored",
     "btn_refresh": "Refresh Process List",
+    "process_instance_hint": (
+        "Same-name programs are listed as separate instances (window title + PID). "
+        "Click a row to flash its window; right-click to switch to it."
+    ),
+    "menu_switch_to": "Switch to this window",
+    "process_not_running_title": "Process not running",
+    "process_not_running_text": (
+        "None of the selected instances are running.\n\n"
+        "Refresh the list and pick a live process."
+    ),
 
     # monitor_view.py
     "live_statistics": "Live Statistics",

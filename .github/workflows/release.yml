@@ -82,12 +82,16 @@ jobs:
       - name: Generate app_manifest.json
         run: python Scripts\generate_manifest.py
 
+      - name: Extract bilingual release notes
+        run: python Scripts\extract_release_notes.py --version ${{ steps.version.outputs.version }} --out build\generated\release_notes.md
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: IGP Performance Monitor ${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          body_path: build/generated/release_notes.md
+          generate_release_notes: false
           files: |
             dist/IGPPerformanceMonitor.exe
             dist/auto_updater.exe

@@ -2,7 +2,7 @@
 
 ## Key files
 
-- `VERSION` / `CHANGELOG.md`
+- `VERSION` / `CHANGELOG.md` / `CHANGELOG.zh-CN.md`
 - `.claude/skills/release/` (if updated)
 
 ## Responsibilities
@@ -14,7 +14,7 @@ Commit the release, create an **annotated** tag, push branch + tag. That tag is 
 ### 1. Commit
 
 ```bat
-git add VERSION CHANGELOG.md
+git add VERSION CHANGELOG.md CHANGELOG.zh-CN.md
 git commit -m "Release X.Y.Z"
 ```
 

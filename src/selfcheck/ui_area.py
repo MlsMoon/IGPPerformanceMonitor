@@ -14,10 +14,10 @@ from PyQt5.QtWidgets import QFrame, QScrollArea
 from PyQt5.QtGui import QFontMetrics
 
 from src import selfcheck
-from src.core.data_store import DataStore
 from src.i18n import tr
-from src.models import SystemSnapshot
+from src.models import frame_series_key, pretty_series_key
 from src.selfcheck import data
+from src.selfcheck.replay import SETTLE_MS as _SETTLE_MS, seed_window, spin as _spin
 from src.selfcheck.report import Report
 from src.selfcheck.spec import Area
 
@@ -29,7 +29,9 @@ AREA = Area(
         "src/ui/",
         "src/i18n/",
         "src/core/user_manual.py",
+        "src/core/changelog.py",
         "src/core/app_config.py",
+        "src/core/process_list.py",
         "assets/",
         "docs/",
     ),
@@ -41,43 +43,33 @@ from src.ui.views.overlay_window import OverlayWindow
 
 _SHOT_DIR = "shots"
 
-# Long enough for a restyle, a relayout and any motion to finish before a grab.
-_SETTLE_MS = 400
-
-
-def _spin(ms: int) -> None:
-    """Pump the event loop for *ms* so timers and animations actually run."""
-    from PyQt5.QtCore import QElapsedTimer
-    from PyQt5.QtWidgets import QApplication
-
-    clock = QElapsedTimer()
-    clock.start()
-    while clock.elapsed() < ms:
-        QApplication.processEvents()
-
 
 def run(report: Report, out_dir: str, **_kwargs) -> None:
     frames = data.load_frames_if_available()
     apps = sorted({f.application for f in frames if f.application})
+    series = sorted({frame_series_key(f) for f in frames if f.application or f.process_id})
 
     report.section("input")
     report.fact("real frames", len(frames))
     report.fact("apps in capture", ", ".join(apps) or "(none)")
+    report.fact("series keys", ", ".join(pretty_series_key(k) for k in series) or "(none)")
     if not frames:
         report.suspect(
             "no real capture available, so charts and stats render empty — "
             "layout facts below are still meaningful, data ones are not")
 
     window = MainWindow()
-    span = _seed(window, frames, apps)
+    span = _seed(window, frames, series)
     report.fact("replayed timeline seconds", f"{span:.1f}" if span else "(none)")
 
     _describe_window(report, window)
     _describe_chips(report, window)
     _exercise_panels(report, window)
+    _exercise_process_picker(report, window)
     _exercise_charts(report, window)
     _exercise_qss(report)
     _exercise_docs(report, window)
+    _exercise_changelog(report, window)
     _exercise_overlay(report)
     _shoot(report, window, out_dir)
     _report_qt_messages(report)
@@ -89,85 +81,8 @@ def _seed(window: MainWindow, frames, apps) -> float:
     It has to be *this* store: the screenshots are of this window, and feeding
     a throwaway MonitorView instead produced reports describing populated
     charts next to PNGs of an empty app.
-
-    ``add_frame`` stamps history with wall-clock elapsed. Dumping a thousand
-    frames in a tight loop therefore draws a single spike at t=0. After the
-    dump we rewrite the histories from PresentMon's own ``time_in_seconds``
-    so the charts show the session that was actually captured.
     """
-    store: DataStore = window._data_store
-    store.start_session()
-    try:
-        store.set_system_info(data.load_real_system_info())
-    except Exception:
-        pass
-    for frame in frames:
-        store.add_frame(frame)
-    store.set_monitored_apps(apps)
-    span = _replay_timeline(store, frames)
-    view = window._monitor_view
-    view._refresh_charts()
-    view._refresh_stats()
-    if span > 0 and hasattr(view, "_set_chart_xrange"):
-        view._set_chart_xrange(list(view._plots.values()), max(span, 10.0))
-    return span
-
-
-def _replay_timeline(store: DataStore, frames) -> float:
-    """Rebuild chart histories on PresentMon's timeline. Returns span in seconds."""
-    # time_in_seconds is not an export column (imported frames are all 0).
-    # Walk each app's frames in file order and accumulate MsBetweenPresents —
-    # that is the clock FPS is already computed from.
-    from collections import defaultdict
-
-    by_app: dict[str, list] = defaultdict(list)
-    for frame in frames:
-        by_app[frame.application or f"pid_{frame.process_id}"].append(frame)
-    if not by_app:
-        return 0.0
-
-    histories = (
-        store._fps_history, store._cpu_history, store._mem_history,
-        store._gpu_history, store._cpu_cores_history, store._app_vram_history,
-    )
-    for hist in histories:
-        hist.clear()
-
-    last_snap = -1.0
-    span = 0.0
-    for key, group in by_app.items():
-        elapsed = 0.0
-        for frame in group:
-            elapsed += (frame.ms_between_presents or 0.0) / 1000.0
-            if elapsed > span:
-                span = elapsed
-            if frame.fps is not None and frame.fps > 0:
-                store._fps_history[key].append((elapsed, frame.fps))
-            if frame.app_cpu_percent is not None:
-                store._cpu_history[key].append((elapsed, frame.app_cpu_percent))
-            if frame.app_cpu_cores is not None:
-                store._cpu_cores_history[key].append((elapsed, frame.app_cpu_cores))
-            if frame.app_vram_mb is not None:
-                store._app_vram_history[key].append((elapsed, frame.app_vram_mb))
-            if frame.app_memory_mb is not None:
-                store._mem_history[key].append((elapsed, frame.app_memory_mb))
-            if frame.app_gpu_percent is not None:
-                store._gpu_history[key].append((elapsed, frame.app_gpu_percent))
-            if elapsed - last_snap >= 0.5:
-                store.add_system_snapshot(SystemSnapshot(
-                    timestamp=elapsed,
-                    total_cpu_percent=frame.total_cpu_percent,
-                    total_gpu_percent=frame.total_gpu_percent,
-                    total_ram_used_gb=frame.total_ram_used_gb,
-                    vram_total_mb=frame.gpu_vram_total_mb,
-                    vram_used_mb=frame.gpu_vram_used_mb,
-                    vram_percent=frame.gpu_vram_percent,
-                ))
-                last_snap = elapsed
-    for hist in histories:
-        for key, points in hist.items():
-            points.sort(key=lambda pair: pair[0])
-    return span
+    return seed_window(window, frames, apps)
 
 
 def _report_qt_messages(report: Report) -> None:
@@ -287,6 +202,75 @@ def _exercise_panels(report: Report, window: MainWindow) -> None:
             report.suspect("View menu checkbox is out of sync with the inline panel")
 
 
+def _exercise_process_picker(report: Report, window: MainWindow) -> None:
+    """Prove same-exe instances stay distinct in the picker (Task Manager style)."""
+    from collections import Counter
+
+    from src.core.process_list import (
+        ProcessInstance, format_instance_label, list_process_instances,
+    )
+
+    report.section("process picker")
+    a = format_instance_label("Unity.exe", 111, "CatGame - Unity")
+    b = format_instance_label("Unity.exe", 222, "Kitchen - Unity")
+    report.fact("same-exe labels differ", f"{a!r} vs {b!r}")
+    if a == b:
+        report.error("two Unity instances format to the same list label")
+    la = ProcessInstance(111, "Unity.exe", "CatGame - Unity").list_label()
+    lb = ProcessInstance(222, "Unity.exe", "Kitchen - Unity").list_label()
+    report.fact("picker row labels differ", f"{la!r} vs {lb!r}")
+    if la == lb:
+        report.error("two Unity picker rows format to the same text")
+    if "CatGame" not in la or "Kitchen" not in lb:
+        report.error("picker rows dropped the window title that distinguishes Unity instances")
+
+    instances = list_process_instances()
+    names = [i.name.lower() for i in instances]
+    dupes = sorted({n for n, c in Counter(names).items() if c > 1})
+    report.fact("running exe instances", len(instances))
+    report.fact("duplicate exe names", ", ".join(dupes[:8]) or "(none)")
+
+    panel = window._process_panel
+    avail = panel._available_list
+    from src.ui.panels.process_panel import _item_instance
+
+    pids: list[int] = []
+    for i in range(avail.count()):
+        inst = _item_instance(avail.item(i))
+        if inst is not None and inst.pid:
+            pids.append(inst.pid)
+    report.fact("available list rows", avail.count())
+    if pids and len(pids) != len(set(pids)):
+        report.error("available list has duplicate PIDs")
+
+    for exe in dupes[:3]:
+        rows = []
+        for i in range(avail.count()):
+            inst = _item_instance(avail.item(i))
+            if inst is not None and inst.name.lower() == exe:
+                rows.append(inst.pid)
+        live = sum(1 for p in instances if p.name.lower() == exe)
+        monitored = [t for t in panel.get_targets() if t.name.lower() == exe]
+        report.fact(f"{exe} rows (available/live)", f"{len(rows)}/{live}")
+        if not monitored and live > 1 and len(rows) < 2:
+            report.error(
+                f"{exe} has {live} live PIDs but the available list collapsed them")
+
+    titled = next((i for i in instances if i.title.strip()), None)
+    if titled and titled.title.strip():
+        needle = titled.title.strip()[:8]
+        panel._search_input.setText(needle)
+        panel._apply_search()
+        visible = sum(
+            1 for i in range(avail.count()) if not avail.item(i).isHidden())
+        report.fact("search by window title visible rows", visible)
+        if visible == 0:
+            report.suspect(
+                "search by window title hid every row — tooltip/search blob may omit titles")
+        panel._search_input.clear()
+        panel._apply_search()
+
+
 def _exercise_charts(report: Report, window: MainWindow) -> None:
     report.section("charts and stats")
     with report.step("MonitorView with real frames"):
@@ -355,8 +339,8 @@ def _exercise_qss(report: Report) -> None:
 def _exercise_docs(report: Report, window: MainWindow) -> None:
     """Bundled user manual: pages present, links resolved, dialog usable."""
     from src.core.user_manual import (
-        PAGE_FILES, docs_root, load_page, locale_folder, page_path,
-        resolve_doc_href,
+        PAGE_FILES, docs_root, load_page, locale_folder, markdown_image_hrefs,
+        page_path, resolve_doc_href, resolve_doc_image,
     )
     from src.ui.dialogs.user_manual import UserManualDialog
 
@@ -387,6 +371,27 @@ def _exercise_docs(report: Report, window: MainWindow) -> None:
         report.fact("sibling link", resolve_doc_href(guide, "troubleshooting.md") is not None)
         report.fact("cross-locale link",
                     resolve_doc_href(guide, "../zh-CN/user-guide.md") is not None)
+        if resolve_doc_image(guide, "../../assets/icon.png") is not None:
+            report.error("resolve_doc_image should refuse a path outside docs/")
+
+    with report.step("markdown images"):
+        missing = []
+        counted = 0
+        for loc_dir in ("en", "zh-CN", "zh-TW", "ja"):
+            for filename in PAGE_FILES.values():
+                md = docs_root() / loc_dir / filename
+                if not md.is_file():
+                    continue
+                text = md.read_text(encoding="utf-8")
+                for href in markdown_image_hrefs(text):
+                    if href.startswith(("http://", "https://", "data:")):
+                        continue
+                    counted += 1
+                    if resolve_doc_image(md, href) is None:
+                        missing.append(f"{loc_dir}/{filename}: {href}")
+        report.fact("image refs", counted)
+        for item in missing:
+            report.error(f"manual image missing or outside docs/: {item}")
 
     with report.step("dialog"):
         labels = []
@@ -406,6 +411,86 @@ def _exercise_docs(report: Report, window: MainWindow) -> None:
         report.fact("switching pages changes body", bool(second.strip()) and second != first)
         if not first.strip():
             report.error("the manual dialog opened with an empty body")
+
+        from PyQt5.QtGui import QPalette
+        dialog.resize(960, 640)
+        dialog.move(-8000, -8000)
+        dialog.show()
+        _spin(200)
+        dialog._show_page("user-guide")
+        _spin(200)
+        dialog._fit_images()
+        n_img = 0
+        too_wide = 0
+        max_w = dialog._browser.viewport().width()
+        block = dialog._browser.document().begin()
+        while block.isValid():
+            it = block.begin()
+            while not it.atEnd():
+                frag = it.fragment()
+                if frag.isValid() and frag.charFormat().isImageFormat():
+                    n_img += 1
+                    width = frag.charFormat().toImageFormat().width()
+                    if max_w > 80 and width > max_w + 1:
+                        too_wide += 1
+                it += 1
+            block = block.next()
+        report.fact("embedded images", n_img)
+        report.fact("viewport width", max_w)
+        report.fact("images wider than viewport", too_wide)
+        if max_w > 80 and n_img == 0:
+            report.suspect("user-guide rendered with no images in the manual dialog")
+        if too_wide:
+            report.error(
+                f"{too_wide} manual image(s) wider than the viewport — they will clip")
+        highlight = dialog._browser.palette().color(QPalette.Highlight).name()
+        report.fact("browser highlight", highlight)
+        if highlight.lower() in ("#9c36b5", "#4dabf7", "#1971c2"):
+            report.error(
+                f"manual browser highlight is {highlight} — use theme.hover_bg")
+        dialog.close()
+
+
+def _exercise_changelog(report: Report, window: MainWindow) -> None:
+    """Both locale files must list the same ## X.Y.Z versions; the dialog must open."""
+    from src.core.changelog import changelog_path, load_raw, version_ids
+    from src.ui.dialogs.changelog_dialog import ChangelogDialog
+
+    report.section("changelog")
+    with report.step("bundled files"):
+        en_ids = version_ids(load_raw("en"))
+        zh_ids = version_ids(load_raw("zh_CN"))
+        report.fact("english versions", ", ".join(en_ids) or "(none)")
+        report.fact("chinese versions", ", ".join(zh_ids) or "(none)")
+        for loc in ("en", "zh_CN"):
+            path = changelog_path(loc)
+            if not path.is_file():
+                report.error(f"changelog missing: {path.name}")
+        if not en_ids:
+            report.error("CHANGELOG.md has no ## X.Y.Z blocks")
+        if en_ids != zh_ids:
+            report.error(
+                f"changelog version mismatch: en={en_ids} zh_CN={zh_ids}"
+            )
+
+    with report.step("dialog"):
+        labels = []
+        for menu_action in window.menuBar().actions():
+            menu = menu_action.menu()
+            if menu is not None:
+                labels.extend(action.text() for action in menu.actions())
+        report.fact("Help menu entry wired", tr("menu_changelog") in labels)
+        if tr("menu_changelog") not in labels:
+            report.error("Help → Changelog is not in the menu bar")
+
+        dialog = ChangelogDialog(window)
+        body = ""
+        if hasattr(dialog, "_browser"):
+            body = dialog._browser.toPlainText()
+        report.fact("latest body chars", len(body))
+        if not body.strip():
+            report.error("the changelog dialog opened with an empty body")
+        dialog.close()
 
 
 def _exercise_overlay(report: Report) -> None:

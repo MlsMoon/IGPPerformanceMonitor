@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (
 
 from src.i18n import tr
 from src.models import FrameData, format_display_outputs
-from src.core.csv_importer import ImportResult, group_frames_by_app, compute_gpu_estimate
+from src.core.csv_importer import ImportResult, group_frames_by_app, compute_gpu_estimate, group_display_name
 from src.core.stutter_analysis import (
     FIXED_33_MS, FIXED_50_MS, analyze_stutter, elapsed_frame_series,
 )
@@ -316,7 +316,7 @@ class CsvAnalysisDialog(QDialog):
         elapsed = 0.0
         for f in self._frames:
             elapsed += _elapsed_dt(f)
-            app = f.application or f"pid_{f.process_id}"
+            app = group_display_name(f.series_key())
             if f.ms_between_presents and f.ms_between_presents > 0:
                 rows.append(("FrameTime", elapsed, f.ms_between_presents, app))
             if f.fps is not None and f.fps > 0:
@@ -420,20 +420,21 @@ class CsvAnalysisDialog(QDialog):
     def _plot_all(self):
         for proc, frames in self._grouped.items():
             color = self._get_color(proc)
-            self._plot_series("fps", self._build_series(frames, lambda f: f.fps), proc, color)
-            self._plot_series("frame_time", self._build_series(frames, lambda f: f.ms_between_presents), proc, color)
+            label = group_display_name(proc)
+            self._plot_series("fps", self._build_series(frames, lambda f: f.fps), label, color)
+            self._plot_series("frame_time", self._build_series(frames, lambda f: f.ms_between_presents), label, color)
             self._plot_series(
                 "stutter_frame_time",
                 [(t, ft) for t, _frame, ft in elapsed_frame_series(frames)],
-                proc,
+                label,
                 color,
             )
-            self._plot_series("memory", self._build_series(frames, lambda f: f.app_memory_mb), proc, color)
-            self._plot_series("cpu", self._build_series(frames, lambda f: f.app_cpu_percent), f"{proc} CPU", color)
+            self._plot_series("memory", self._build_series(frames, lambda f: f.app_memory_mb), label, color)
+            self._plot_series("cpu", self._build_series(frames, lambda f: f.app_cpu_percent), f"{label} CPU", color)
             self._plot_series(
                 "gpu",
                 self._build_series(frames, lambda f: f.app_gpu_percent if f.app_gpu_percent is not None else compute_gpu_estimate(f.ms_gpu_busy, f.ms_between_presents)),
-                f"{proc} GPU", color,
+                f"{label} GPU", color,
             )
 
         # System-wide series

@@ -17,6 +17,8 @@ import argparse
 import subprocess
 from collections import Counter
 
+from src.models import frame_series_key
+
 from src.core.libpng_silence import install as install_libpng_silence
 
 # Before PyQt loads: Qt's bundled PNGs have bad iCCP profiles and libpng
@@ -189,7 +191,7 @@ def run_headless_capture(args) -> int:
             writer.writerow(_frame_to_row(frame))
     write_stats(output_path, data_store, frames)
 
-    counts = Counter(frame.application or f"pid_{frame.process_id}" for frame in frames)
+    counts = Counter(frame_series_key(frame) for frame in frames)
     print(f"Wrote {len(frames)} frames + stats -> {output_path}")
     for name, count in counts.most_common(5):
         print(f"  {name}: {count}")

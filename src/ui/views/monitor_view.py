@@ -111,9 +111,9 @@ class MonitorView(QWidget, ChartViewMixin):
         if metric == "cpu":
             return self._data_store.get_cpu_history(proc)
         if metric == "app_cpu_cores":
-            # Frame-based history (key=frame.application) — matches cpu/mem/gpu;
+            # Frame-based history (key=frame_series_key) — matches cpu/mem/gpu;
             # reading per_process_snapshots[proc.name()] would miss the curve when
-            # frame.application (PresentMon) differs from proc.name() (psutil).
+            # PresentMon Application differs from psutil proc.name().
             return self._data_store.get_cpu_cores_history(proc)
         if metric == "gpu":
             return [(t, v) for t, v in self._data_store.get_gpu_history(proc) if v is not None]
@@ -170,10 +170,14 @@ class MonitorView(QWidget, ChartViewMixin):
         apps = self._data_store.get_monitored_apps()
         if not apps:
             return ""
-        return tr("monitored_apps_label", ", ".join(apps))
+        return tr("monitored_apps_label", ", ".join(
+            self._data_store.display_name(a) for a in apps))
 
     def _get_monitored_apps(self) -> list[str]:
         return self._data_store.get_monitored_apps()
+
+    def _display_process_name(self, key: str) -> str:
+        return self._data_store.display_name(key)
 
     # ------------------------------------------------------------------
     # UI construction (delegates to mixin)

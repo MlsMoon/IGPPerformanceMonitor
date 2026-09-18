@@ -64,6 +64,7 @@ python -m src.main -t ui                       :: window + four PNGs
 python -m src.main -t update                   :: localhost download / verify / cancel
 Scripts\selfcheck.bat capture -a App.exe -s 8  :: real PresentMon (admin)
 python -m src.tests                            :: i18n / CSV / manifest contracts
+python -m src.selfcheck.docs_shots             :: user-guide PNGs (judge, then --publish-only)
 ```
 
 `-a` is `--process-name`, `-s` is `--timed`. Transcript: `temp/selfcheck/report.txt`.

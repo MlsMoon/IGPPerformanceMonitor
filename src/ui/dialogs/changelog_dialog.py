@@ -1,27 +1,24 @@
-"""Changelog dialog — renders the bundled CHANGELOG.md with version navigation."""
-import re
-
+"""Changelog dialog — version list + markdown for the current UI locale."""
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTextBrowser, QPushButton,
     QSplitter, QListWidget, QListWidgetItem, QWidget,
 )
 
+from src.core.changelog import load_raw, parse_versions
 from src.i18n import tr
-from src.core.app_info import resource_root
 from src.ui import theme
 
 
 class ChangelogDialog(QDialog):
-    """Shows the project CHANGELOG.md with a left-side version list."""
+    """Shows the locale changelog with a left-side version list."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(tr("changelog_title"))
         self.resize(780, 540)
 
-        raw = self._load_changelog_raw()
-        self._versions = self._parse_changelog_versions(raw)
+        self._versions = parse_versions(load_raw())
 
         root_layout = QVBoxLayout(self)
 
@@ -87,46 +84,6 @@ class ChangelogDialog(QDialog):
             btn_row.addWidget(close_btn)
             root_layout.addLayout(btn_row)
 
-    # ----------------------------------------------------------------
-    # Content loading / parsing
-    # ----------------------------------------------------------------
-
-    @staticmethod
-    def _load_changelog_raw() -> str:
-        path = resource_root() / "CHANGELOG.md"
-        try:
-            return path.read_text(encoding="utf-8").strip()
-        except OSError:
-            return ""
-
-    @staticmethod
-    def _parse_changelog_versions(raw: str) -> list[tuple[str, str]]:
-        """Split raw CHANGELOG.md into [(version, markdown_block), …].
-
-        Blocks are delimited by ``## X.Y.Z`` lines.  The first ``# Changelog``
-        title line is skipped.
-        """
-        if not raw:
-            return []
-        # Split on "## " at line start — each block is "X.Y.Z\n- …lines…"
-        blocks = re.split(r"\n(?=## )", raw)
-        versions: list[tuple[str, str]] = []
-        for block in blocks:
-            block = block.strip()
-            # Skip the top-level "# Changelog" heading
-            if not block.startswith("## "):
-                continue
-            # First line: "## X.Y.Z"
-            first_line = block.split("\n", 1)[0]
-            ver = first_line[3:].strip()  # remove "## " prefix
-            if ver:
-                versions.append((ver, block))
-        return versions
-
-    # ----------------------------------------------------------------
-    # Slots
-    # ----------------------------------------------------------------
-
     def _on_version_selected(self, current: QListWidgetItem, _previous: QListWidgetItem):
         if current is None:
             return
@@ -135,10 +92,6 @@ class ChangelogDialog(QDialog):
             if v == ver:
                 self._browser.setMarkdown(content)
                 return
-
-    # ----------------------------------------------------------------
-    # Theming
-    # ----------------------------------------------------------------
 
     def _apply_theme(self):
         if not hasattr(self, "_version_list"):

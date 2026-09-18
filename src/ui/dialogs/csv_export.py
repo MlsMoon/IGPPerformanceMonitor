@@ -16,7 +16,7 @@ from src.core.metrics_schema import (
     CSV_EXPORT_HEADER_V2,
     frame_to_row,
 )
-from src.models import FrameData, format_display_outputs
+from src.models import FrameData, format_display_outputs, frame_series_key, pretty_series_key
 from src.ui import theme
 
 _HOME = os.path.expanduser("~")
@@ -80,7 +80,7 @@ def write_stats(filepath: str, store: DataStore, frames: list[FrameData], proc_n
     with open(filepath, "a", newline="") as f:
         f.write("\n")
         _write_comment_line(f, f"# {tr('summary_title')}")
-        _write_comment_line(f, f"# {tr('summary_process')}, {proc_name or frames[0].application}")
+        _write_comment_line(f, f"# {tr('summary_process')}, {pretty_series_key(proc_name) if proc_name else frames[0].application}")
         _write_comment_line(f, f"# {tr('summary_total_frames')}, {n}")
         _write_comment_line(f, f"# {tr('summary_avg_fps')}, {round(avg_fps, 1)}")
         _write_comment_line(f, f"# {tr('summary_min_fps')}, {round(fps_values[0], 1)}")
@@ -155,7 +155,7 @@ class CsvExportDialog(QDialog):
         if self._per_process_radio.isChecked():
             procs: dict[str, list[FrameData]] = {}
             for f in frames:
-                key = f.application or f"pid_{f.process_id}"
+                key = frame_series_key(f)
                 procs.setdefault(key, []).append(f)
 
             dir_path = QFileDialog.getExistingDirectory(self, tr("select_dir"), _HOME)
@@ -164,7 +164,11 @@ class CsvExportDialog(QDialog):
 
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             for proc_name, proc_frames in procs.items():
-                safe_name = proc_name.replace(".exe", "").replace(" ", "_")
+                label = pretty_series_key(proc_name)
+                safe_name = (
+                    label.replace(".exe", "").replace(" ", "_")
+                    .replace("|", "_").replace("(", "").replace(")", "")
+                )
                 filepath = os.path.join(dir_path, f"igpmon-{safe_name}-{timestamp}.csv")
                 self._write_csv(filepath, proc_frames)
                 self._write_stats(filepath, proc_frames, proc_name)
