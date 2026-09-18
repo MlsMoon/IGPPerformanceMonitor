@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3
+
+System info layout, a quieter console, and a smaller test loop.
+
+- System info is now key/value rows in the same collapsible section as the rest of the chrome, so collapsing no longer hides the header.
+- Source builds show a development badge in the title and status bar.
+- Qt's bundled-icon libpng iCCP warnings no longer print to the console.
+- Verification is a static script plus `-t` self-checks a planner selects, instead of a large assertion suite.
+
 ## 0.1.2
 
 User manual, overlay teardown, and a few UI fixes since 0.1.1.
