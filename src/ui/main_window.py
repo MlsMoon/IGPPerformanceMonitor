@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PyQt5.QtCore import Qt, QTimer, QByteArray, QUrl
-from PyQt5.QtGui import QDesktopServices, QIcon, QKeySequence
+from PyQt5.QtGui import QDesktopServices, QIcon, QKeySequence, QPixmap
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStatusBar, QAction, QMessageBox, QDialog,
@@ -41,6 +41,28 @@ def _resolve_icon_path() -> Path:
     else:
         base = Path(__file__).resolve().parents[2]
     return base / "assets" / "icon.png"
+
+
+def _menu_gutter_icon() -> QIcon:
+    """Transparent icon that occupies the check column on plain menu rows."""
+    pix = QPixmap(16, 16)
+    pix.fill(Qt.transparent)
+    return QIcon(pix)
+
+
+def _align_mixed_menu(menu) -> None:
+    """Line up plain rows with checkable rows in the same menu.
+
+    Qt 5.15.2's stylesheet style indents only checkable items (QTBUG-90242).
+    A transparent icon on the others occupies the same gutter.
+    """
+    icon = _menu_gutter_icon()
+    for action in menu.actions():
+        if action.isSeparator() or action.isCheckable():
+            continue
+        if action.icon().isNull():
+            action.setIcon(icon)
+            action.setIconVisibleInMenu(True)
 
 
 class MainWindow(QMainWindow):
@@ -226,6 +248,7 @@ class MainWindow(QMainWindow):
         self._click_through_action = self._add_toggle(
             menu, "menu_click_through", self._toggle_click_through,
             checked=self._click_through)
+        _align_mixed_menu(menu)
 
     def _build_help_menu(self, menu) -> None:
         self._add_action(menu, "menu_shortcuts", self._show_shortcuts, "F1")

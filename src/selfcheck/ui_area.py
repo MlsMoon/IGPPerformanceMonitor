@@ -550,6 +550,13 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
                     path = os.path.join(shots, f"{name}-{width}x{height}.png")
                     window.grab().save(path)
                     written.append(path)
+                    # View mixes checkable and plain rows; grab the open menu
+                    # so an indent regression is visible. Size is independent
+                    # of the window, so once per theme is enough.
+                    if (width, height) == (1280, 800):
+                        menu_path = os.path.join(shots, f"{name}-view-menu.png")
+                        _grab_view_menu(window, menu_path)
+                        written.append(menu_path)
         finally:
             theme.set_theme(started_on)
 
@@ -557,3 +564,18 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
             report.fact(os.path.basename(path), path)
         report.fact("note", "open all of these; they are the point of this area")
         report.fact("expected title", tr("window_title"))
+
+
+def _grab_view_menu(window: MainWindow, path: str) -> None:
+    """Popup View, grab the dropdown, then dismiss it."""
+    view = next(
+        action for action in window.menuBar().actions()
+        if action.text().replace("&", "") == tr("menu_view")
+    )
+    menu = view.menu()
+    geo = window.menuBar().actionGeometry(view)
+    menu.popup(window.menuBar().mapToGlobal(geo.bottomLeft()))
+    _spin(80)
+    menu.grab().save(path)
+    menu.hide()
+    _spin(40)
