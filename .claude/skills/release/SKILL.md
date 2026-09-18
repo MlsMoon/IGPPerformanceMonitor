@@ -35,6 +35,10 @@ Both branches are **protected** (no force-push, no delete). Do not recreate `mai
 
 Project-owned skills, `CLAUDE.md`, source comments, changelog, and commit messages are **English**. The only Chinese in-tree is UI copy in `src/i18n/zh_CN.py`.
 
+## Version
+
+If the user names a version (`release 0.2.0`), use that. **If they do not, bump the patch: `X.Y.Z` → `X.Y.(Z+1)`** (a 0.0.1 increment). Do not ask. Do not infer minor/major from the commit list unless they said so.
+
 ## Rules
 
 - Do not stop to ask "continue?" between phases.

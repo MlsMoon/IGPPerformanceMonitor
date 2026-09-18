@@ -24,7 +24,9 @@ Working tree should be releasable. The static gate and contract checks must pass
 
 ### 2. Show current state
 
-Read `VERSION` and `CHANGELOG.md`. Choose the next semver (patch/minor/major from the commits since the last tag).
+Read `VERSION` and `CHANGELOG.md`.
+
+**Default bump is patch (`+0.0.1`).** `0.1.2` → `0.1.3`. Use a different number only when the user named one (`release 0.2.0`). Do not ask. Do not promote to minor/major from the commit list on your own.
 
 ### 3. Write VERSION
 
@@ -57,4 +59,4 @@ Show the new VERSION and changelog block, then go to phase 2 without waiting.
 
 - [ ] `VERSION` is clean `X.Y.Z`
 - [ ] Changelog covers user-visible work since the last tag
-- [ ] Offscreen tests passed
+- [ ] Static gate and contract checks passed
