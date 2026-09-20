@@ -16,17 +16,25 @@ Use `### Added` / `### Changed` / `### Fixed` / `### For contributors` as needed
 Released 2026-09-20.
 
 **Do not download 0.1.5.** After the first-run language dialog — or Settings →
-Language — the main window never appears, so a new install looks like it
-exited. Use this build instead.
+Language — the main window never appears. This 0.1.6 file **replaces** an
+earlier 0.1.6 upload that still exited when you pressed OK. If About already
+says 0.1.6 and picking a language still closes the app, download this build
+again; Check for Updates will not see a newer version number.
 
 ### Fixed
 
 - First launch **Language / 语言** and **Settings → Language** keep the app
-  open. Closing the picker was treated as “the last window closed”, so Qt
-  quit before `MainWindow` could show. If you already have 0.1.5, get 0.1.6
-  from GitHub Releases
-  (https://github.com/MlsMoon/IGPPerformanceMonitor/releases/tag/v0.1.6).
-  Help → Check for Updates works once a copy that can still open is running.
+  open. 0.1.5 treated closing the picker as “the last window closed”, so Qt
+  quit before `MainWindow` could show. The first 0.1.6 upload still closed
+  after OK: the language you picked was not saved, so the process exited
+  instead of opening the window. Get this file from GitHub Releases
+  (https://github.com/MlsMoon/IGPPerformanceMonitor/releases/tag/v0.1.6)
+  even if you already installed 0.1.6.
+
+### For contributors
+
+- `-t startup` spawns `python -m src.main` (and the packed EXE when present)
+  through the real first-run path. `-t ui` never enters `main()`.
 
 ## 0.1.5
 
