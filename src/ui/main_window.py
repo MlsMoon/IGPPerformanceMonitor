@@ -792,13 +792,22 @@ class MainWindow(QMainWindow):
 
     def _replace_main_window(self) -> None:
         """Rebuild the window in the same QApplication after a language switch."""
-        replacement = MainWindow()
         app = QApplication.instance()
+        if app is not None:
+            # Closing this window is lastWindowClosed unless the replacement
+            # is already considered a visible primary window. On Windows the
+            # new HWND can lag show(), which queued quit() and left no UI.
+            app.setQuitOnLastWindowClosed(False)
+        replacement = MainWindow()
         if app is not None:
             app._igp_main_window = replacement
         replacement.show()
+        replacement.raise_()
+        replacement.activateWindow()
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.close()
+        if app is not None:
+            QTimer.singleShot(0, lambda: app.setQuitOnLastWindowClosed(True))
 
     def showEvent(self, event):
         # Toggling always-on-top recreates the native window, which drops the

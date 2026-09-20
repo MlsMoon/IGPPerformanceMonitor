@@ -11,9 +11,30 @@ Do not ship a release whose notes are only the auto-generated
 Headings must stay `## X.Y.Z` — the in-app dialog splits on those lines.
 Use `### Added` / `### Changed` / `### Fixed` / `### For contributors` as needed.
 
+## 0.1.6
+
+Released 2026-09-20.
+
+**Do not download 0.1.5.** After the first-run language dialog — or Settings →
+Language — the main window never appears, so a new install looks like it
+exited. Use this build instead.
+
+### Fixed
+
+- First launch **Language / 语言** and **Settings → Language** keep the app
+  open. Closing the picker was treated as “the last window closed”, so Qt
+  quit before `MainWindow` could show. If you already have 0.1.5, get 0.1.6
+  from GitHub Releases
+  (https://github.com/MlsMoon/IGPPerformanceMonitor/releases/tag/v0.1.6).
+  Help → Check for Updates works once a copy that can still open is running.
+
 ## 0.1.5
 
 Released 2026-09-20.
+
+**Broken. Do not download 0.1.5.** The first-run language dialog and
+Settings → Language close the app instead of showing the main window.
+Download [0.1.6](https://github.com/MlsMoon/IGPPerformanceMonitor/releases/tag/v0.1.6).
 
 The menu bar now has a Settings menu and in-app language switching. Help →
 Check for Updates no longer freezes the window while it talks to GitHub, and

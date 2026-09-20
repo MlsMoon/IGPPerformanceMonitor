@@ -275,12 +275,17 @@ def main():
     win_chrome.install(app)
     from src.ui import theme as ui_theme
     ui_theme.apply_app_qss()
+    # First-run LanguageDialog is the only window. If we leave the default
+    # quitOnLastWindowClosed, accepting it queues quit() and MainWindow never
+    # lands. Restore after the real window is shown so closing it still exits.
+    app.setQuitOnLastWindowClosed(False)
     ensure_ui_locale()
     app.setApplicationName(tr("window_title"))
 
     window = MainWindow()
     app._igp_main_window = window
     window.show()
+    app.setQuitOnLastWindowClosed(True)
     sys.exit(app.exec_())
 
 

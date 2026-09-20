@@ -10,7 +10,8 @@ from __future__ import annotations
 import os
 import re
 
-from PyQt5.QtWidgets import QFrame, QScrollArea
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QApplication, QFrame, QScrollArea
 from PyQt5.QtGui import QFontMetrics
 
 from src import selfcheck
@@ -38,6 +39,7 @@ AREA = Area(
 )
 from src.ui import motion, theme, win_chrome
 from src.ui.chart_base import SystemChip
+from src.ui.dialogs.language_dialog import LanguageDialog
 from src.ui.main_window import MainWindow
 from src.ui.views.overlay_window import OverlayWindow
 
@@ -72,6 +74,7 @@ def run(report: Report, out_dir: str, **_kwargs) -> None:
     _exercise_changelog(report, window)
     _exercise_overlay(report)
     _shoot(report, window, out_dir)
+    _exercise_language_startup(report)
     _report_qt_messages(report)
 
 
@@ -632,6 +635,55 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
             report.fact(os.path.basename(path), path)
         report.fact("note", "open all of these; they are the point of this area")
         report.fact("expected title", tr("window_title"))
+
+
+def _exercise_language_startup(report: Report) -> None:
+    """First-run OK and Settings → Language used to leave no window.
+
+    Closing the picker (the only window so far) was lastWindowClosed, so
+    Qt queued quit() and MainWindow.show() after exec_() never appeared.
+    Rebuilding MainWindow on a language switch hit the same race.
+    """
+    report.section("language first-run / switch")
+    dialog = LanguageDialog()
+    quits = dialog.testAttribute(Qt.WA_QuitOnClose)
+    report.fact("language dialog WA_QuitOnClose", quits)
+    if quits:
+        report.error(
+            "LanguageDialog still has WA_QuitOnClose; first-run OK quits "
+            "the app before MainWindow.show()"
+        )
+    QTimer.singleShot(0, dialog._accept)
+    dialog.exec_()
+
+    probe = MainWindow()
+    probe.show()
+    _spin(50)
+    after_dialog = probe.isVisible()
+    report.fact("window visible after language dialog", after_dialog)
+    if not after_dialog:
+        report.error(
+            "MainWindow hidden after LanguageDialog closed "
+            "(quitOnLastWindowClosed queued QApplication.quit())"
+        )
+
+    probe._replace_main_window()
+    _spin(50)
+    replacement = getattr(QApplication.instance(), "_igp_main_window", None)
+    after_swap = (
+        replacement is not None
+        and replacement is not probe
+        and replacement.isVisible()
+    )
+    report.fact("window visible after language rebuild", after_swap)
+    if not after_swap:
+        report.error(
+            "rebuilding MainWindow after a language change left no visible window"
+        )
+    if replacement is not None:
+        replacement.close()
+    if probe.isVisible():
+        probe.close()
 
 
 def _check_stats_follows_theme(

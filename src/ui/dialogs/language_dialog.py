@@ -5,6 +5,7 @@ locale has been chosen yet, so a single-language ``tr()`` would look like the
 app had already decided.
 """
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QButtonGroup, QDialog, QHBoxLayout, QLabel, QPushButton,
     QRadioButton, QVBoxLayout,
@@ -24,6 +25,10 @@ class LanguageDialog(QDialog):
         self.setWindowTitle(bilingual("language_picker_title"))
         self.setModal(True)
         self.setMinimumWidth(320)
+        # Closing this dialog is not "the user quit". Default WA_QuitOnClose
+        # plus quitOnLastWindowClosed would QApplication.quit() here, and
+        # MainWindow.show() after exec_() would never appear.
+        self.setAttribute(Qt.WA_QuitOnClose, False)
         self.selected: str | None = None
 
         root = QVBoxLayout(self)
