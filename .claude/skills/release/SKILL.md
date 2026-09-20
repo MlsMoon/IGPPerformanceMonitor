@@ -38,7 +38,7 @@ Project-owned skills, `CLAUDE.md`, source comments, and commit messages are **En
 User-facing changelog is bilingual: `CHANGELOG.md` (English, canonical) and
 `CHANGELOG.zh-CN.md` (Simplified Chinese). Write both in the same detail —
 the Chinese file is not a shorter summary. Other Chinese user copy lives in
-`src/i18n/zh_CN.py` and `docs/zh-CN/` (`docs/zh-TW/` is Traditional).
+`src/i18n/locales/zh_CN.json` and `docs/zh-CN/` (`docs/zh-TW/` is Traditional).
 
 ## Version
 

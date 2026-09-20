@@ -45,7 +45,7 @@ Blank cells are missing samples (`None`), not zero.
 
 ## Cannot click the overlay
 
-**View → Click-through** sends mouse events to the game. Right-click on the overlay then does nothing. Turn click-through off from the View menu, or use **F9** to hide overlays.
+**Settings → Click-through** sends mouse events to the game. Right-click on the overlay then does nothing. Turn click-through off from the Settings menu, or use **F9** to hide overlays.
 
 ## Self-update does nothing / “dev mode”
 
@@ -57,16 +57,14 @@ Rollback needs a previous version stored from an earlier update. A first install
 
 ## Wrong UI language
 
-There is no language item in the menus.
+**Settings → Language** switches between English and 简体中文 without restarting the process. `IGP_LANG` still wins on the next launch.
 
 ```bat
 set IGP_LANG=en
 set IGP_LANG=zh_CN
 ```
 
-A Windows locale that starts with `zh` selects Simplified Chinese. Traditional Chinese Windows still maps to `zh_CN` in the UI. `docs/zh-TW/` is documentation only.
-
-Restart the app after changing `IGP_LANG`.
+A Windows locale that starts with `zh` selects Simplified Chinese when nothing is saved yet. Traditional Chinese Windows still maps to `zh_CN` in the UI. `docs/zh-TW/` is documentation only.
 
 ## Charts disappeared
 

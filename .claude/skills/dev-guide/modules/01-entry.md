@@ -5,7 +5,8 @@
 - `src/main.py` — process entry; admin elevation; `--debug` / `--headless` / `-t`; `run_headless_capture`
 - `src/selfcheck/` — `-t` areas (auto-discovered `*_area.py`), `plan` (`python -m src.selfcheck plan`), report object
 - `src/core/capture_session.py` — `CaptureSession`; shared DataStore + wrapper + sampler lifetime
-- `src/ui/main_window.py` — menus, overlay, update check, GitHub link, Help → User Manual
+- `src/ui/main_window.py` — menus (File / View / Settings / Help), overlay, update check, GitHub link, Help → User Manual
+- `src/ui/dialogs/language_dialog.py` — first-run picker (`bilingual()` from JSON catalogs, not `tr()`)
 - `src/config.py` — intervals, history window, PresentMon path
 
 ## Responsibilities
@@ -20,12 +21,14 @@ Start the app (GUI or headless), guarantee admin, and let `CaptureSession` own P
 - **Verify with the planner, not a habit.** `python -m src.selfcheck plan` selects areas from `AREA.touches`. Do not spawn a subagent unless it says `subagent: yes`. A new `*_area.py` is picked up automatically; a new `src/<pkg>/` with no `touches` prints `UNCOVERED`.
 - **Headless uses `CaptureSession.run_blocking(config)`.** Do not hand-assemble DataStore/wrapper/sampler. Headless must start the sampler or CSV will lack system/process columns (`_enrich_frame` reads `_latest`).
 - **GUI start/stop uses `CaptureSession.start/stop`.** The window may connect `session.wrapper` signals and read `session.data_store`, but must not call `wrapper.configure` + `sampler.configure` + `start` itself.
-- **Startup update check:** `QTimer.singleShot(1500, self._auto_check_update)`; skip in dev; silent unless an update exists. Source is GitHub Releases (`DEFAULT_APP_MANIFEST_URL`).
+- **Menus are built by `_build_file_menu` / `_build_view_menu` / `_build_settings_menu` / `_build_help_menu`** via the `_add_action` / `_add_toggle` helpers. New shortcuts must also land in `shortcuts_dialog._SHORTCUTS`. View is visibility (charts, overlays). Settings is preferences (dark mode, always on top, click-through, Language submenu).
+- **Menu-bar titles carry 16×16 monochrome glyphs** painted in `_GlyphMenuBar.paintEvent` from `theme.text_secondary` (`menu_kind` on each `menuAction()`). Fusion paints `CE_MenuBarItem` as **icon or text, never both**, so do **not** `setIcon` on the bar actions — that hides File / 文件. Leave room with `QMenuBar::item` left padding (26px). Refresh via `update()` in `_on_theme_changed`. No PNG assets and no colorful `QStyle.standardIcon`.
+- **First-run language:** `ensure_ui_locale()` runs after Fusion + `win_chrome.install` + QSS, **before** `MainWindow()`. Skip when `IGP_LANG` or config `locale` is already set. `-t` / headless never reach this path (they build their own QApp). Switching later persists `locale`, `set_locale`, and replaces `MainWindow` in the same `QApplication` (`app._igp_main_window`); `closeEvent` already stops capture/overlays. Do not UAC-relaunch just to change language.
+- **Startup update check:** `QTimer.singleShot(1500, self._auto_check_update)`; skip in dev; silent unless an update exists. Source is GitHub Releases (`DEFAULT_APP_MANIFEST_URL`). The JSON fetch itself is on `ManifestWorker` (see `06-version-update.md`); Help → Check for Updates / Version History are disabled while it runs.
 - **Window icon:** `setWindowIcon(QIcon(str(_resolve_icon_path())))` → `assets/icon.png` (bundled when frozen). Do not add a menu-bar corner widget.
 - **libpng iCCP spam is Qt's, not ours.** `assets/icon.png` has no iCCP chunk. Qt's bundled style/message-box PNGs do, and libpng `fprintf`s to C stderr. Wrapping `sys.stderr` does not catch that. `src.core.libpng_silence.install()` (called in `main.py` before the PyQt import) dup2s fd 2. Do not "fix" it by stripping our icon again.
 - **Dev mode marker:** `is_dev_mode()` is `not sys.frozen`. Source runs must show it on the window title (`window_title_dev`) **and** a permanent status-bar badge (`dev_badge`). Packaged EXE shows neither. Do not rely on the update-dialog copy alone — users never open that on a normal launch.
 - **`win_chrome.install(app)` runs right after `setStyle("Fusion")`**, before the first window exists, so dialogs and message boxes get a themed title bar too. Details and the `setWindowFlags` caveat are in `04-live-ui.md`.
-- **Menus are built by `_build_file_menu` / `_build_view_menu` / `_build_help_menu`** via the `_add_action` / `_add_toggle` helpers. New shortcuts must also land in `shortcuts_dialog._SHORTCUTS`.
 - **`closeEvent`:** stop+wait wrapper and sampler, and `overlay.shutdown()` (otherwise overlays leak). Capture-time overlay hide is `set_capture_active(False)` from `_on_state_changed`, not a bare `hide()` in `_stop_capture`.
 
 ## Checklist
@@ -36,4 +39,4 @@ Start the app (GUI or headless), guarantee admin, and let `CaptureSession` own P
 - [ ] `closeEvent` closes overlays and joins worker threads
 
 ---
-last_updated: 2026-09-17
+last_updated: 2026-09-18

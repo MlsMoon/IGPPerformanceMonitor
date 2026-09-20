@@ -25,7 +25,7 @@ from src.core.libpng_silence import install as install_libpng_silence
 # writes those warnings to C stderr, which a sys.stderr wrapper never sees.
 install_libpng_silence()
 
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox
 
 from src import selfcheck
 from src.i18n import tr
@@ -101,6 +101,25 @@ def setup_logging(debug: bool = False):
     )
     if debug:
         logging.getLogger().info(f"Debug log: {log_path}")
+
+
+def ensure_ui_locale() -> None:
+    """First-run language picker when neither IGP_LANG nor config locale is set."""
+    if os.environ.get("IGP_LANG"):
+        return
+    from src.core import app_config
+    if app_config.get("locale"):
+        return
+    from src.ui.dialogs.language_dialog import LanguageDialog
+    dialog = LanguageDialog()
+    if dialog.exec_() != QDialog.Accepted:
+        sys.exit(0)
+    locale = dialog.selected_locale()
+    if not locale:
+        sys.exit(0)
+    app_config.set("locale", locale)
+    from src.i18n import set_locale
+    set_locale(locale)
 
 
 def show_admin_required_and_exit():
@@ -251,12 +270,16 @@ def main():
 
     configure_high_dpi()
     app = QApplication(sys.argv)
-    app.setApplicationName(tr("window_title"))
     app.setOrganizationName("IGP")
     app.setStyle("Fusion")
     win_chrome.install(app)
+    from src.ui import theme as ui_theme
+    ui_theme.apply_app_qss()
+    ensure_ui_locale()
+    app.setApplicationName(tr("window_title"))
 
     window = MainWindow()
+    app._igp_main_window = window
     window.show()
     sys.exit(app.exec_())
 

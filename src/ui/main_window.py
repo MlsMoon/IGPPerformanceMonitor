@@ -1,17 +1,21 @@
 """Main application window."""
 
+import math
 import sys
 from pathlib import Path
 
-from PyQt5.QtCore import Qt, QTimer, QByteArray, QUrl
-from PyQt5.QtGui import QDesktopServices, QIcon, QKeySequence, QPixmap
+from PyQt5.QtCore import QByteArray, QPointF, QRectF, Qt, QTimer, QUrl
+from PyQt5.QtGui import (
+    QColor, QDesktopServices, QIcon, QKeySequence, QPainter,
+    QPainterPath, QPen, QPixmap,
+)
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QStatusBar, QAction, QMessageBox, QDialog,
-    QSplitter, QLabel, QMenuBar, QFileDialog,
+    QAction, QActionGroup, QApplication, QDialog, QFileDialog, QHBoxLayout,
+    QLabel, QMainWindow, QMenuBar, QMessageBox, QSplitter, QStatusBar,
+    QVBoxLayout, QWidget,
 )
 
-from src.i18n import tr
+from src.i18n import LOCALE_NATIVE_NAMES, UI_LOCALES, get_locale, set_locale, tr
 from src.models import SessionConfig, frame_series_key
 from src.core.capture_session import CaptureSession
 from src.core.csv_importer import import_file
@@ -27,7 +31,7 @@ from src.core import app_config
 from src.ui.dialogs.changelog_dialog import ChangelogDialog
 from src.ui.dialogs.user_manual import UserManualDialog
 from src.ui.dialogs.shortcuts_dialog import ShortcutsDialog
-from src.ui.dialogs.update_progress import UpdateProgressDialog
+from src.ui.dialogs.update_progress import ManifestWorker, UpdateProgressDialog
 from src.ui import theme, win_chrome
 import logging
 
@@ -48,6 +52,80 @@ def _menu_gutter_icon() -> QIcon:
     pix = QPixmap(16, 16)
     pix.fill(Qt.transparent)
     return QIcon(pix)
+
+
+_MENU_ICON_PX = 16
+
+
+def _paint_menu_glyph(painter: QPainter, kind: str, color: QColor) -> None:
+    """Stroke a 16×16 monochrome glyph in the current painter (logical px)."""
+    pen = QPen(color, 1.4)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.NoBrush)
+    if kind == "file":
+        painter.drawRoundedRect(QRectF(4.0, 2.5, 8.0, 11.0), 1.2, 1.2)
+        painter.drawLine(QPointF(6.0, 6.0), QPointF(10.5, 6.0))
+        painter.drawLine(QPointF(6.0, 8.5), QPointF(10.5, 8.5))
+        painter.drawLine(QPointF(6.0, 11.0), QPointF(9.0, 11.0))
+        return
+    if kind == "view":
+        eye = QPainterPath()
+        eye.moveTo(1.5, 8.0)
+        eye.quadTo(8.0, 2.5, 14.5, 8.0)
+        eye.quadTo(8.0, 13.5, 1.5, 8.0)
+        painter.drawPath(eye)
+        painter.setBrush(color)
+        painter.drawEllipse(QRectF(6.4, 6.4, 3.2, 3.2))
+        painter.setBrush(Qt.NoBrush)
+        return
+    if kind == "settings":
+        cx, cy = 8.0, 8.0
+        painter.drawEllipse(QPointF(cx, cy), 3.0, 3.0)
+        for i in range(6):
+            ang = math.radians(i * 60.0 - 90.0)
+            cos_a, sin_a = math.cos(ang), math.sin(ang)
+            painter.drawLine(
+                QPointF(cx + 4.2 * cos_a, cy + 4.2 * sin_a),
+                QPointF(cx + 6.5 * cos_a, cy + 6.5 * sin_a),
+            )
+        return
+    painter.drawEllipse(QRectF(2.0, 2.0, 12.0, 12.0))
+    mark = QPainterPath()
+    mark.moveTo(5.6, 6.2)
+    mark.cubicTo(5.6, 3.8, 10.4, 3.8, 10.4, 6.2)
+    mark.cubicTo(10.4, 7.6, 8.0, 7.4, 8.0, 9.2)
+    painter.drawPath(mark)
+    painter.setBrush(color)
+    painter.drawEllipse(QPointF(8.0, 11.6), 0.8, 0.8)
+
+
+class _GlyphMenuBar(QMenuBar):
+    """Menubar that paints 16px glyphs beside titles.
+
+    Fusion draws a menubar item as icon *or* text. Putting a QIcon on
+    ``menuAction()`` therefore hid File / 文件. Glyphs live in left padding
+    instead, keyed by the action's ``menu_kind`` property.
+    """
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        color = QColor(theme.current_theme().text_secondary)
+        for action in self.actions():
+            kind = action.property("menu_kind")
+            if not kind:
+                continue
+            geo = self.actionGeometry(action)
+            painter.save()
+            painter.translate(
+                geo.x() + 6,
+                geo.y() + (geo.height() - _MENU_ICON_PX) // 2,
+            )
+            _paint_menu_glyph(painter, kind, color)
+            painter.restore()
 
 
 def _align_mixed_menu(menu) -> None:
@@ -87,6 +165,11 @@ class MainWindow(QMainWindow):
         self._screen_hook_handle = None
         self._overlays_suppressed = False      # F9 master hide for all overlays
         self._click_through = app_config.get("overlay_click_through", False)
+        self._manifest_worker: ManifestWorker | None = None
+        self._manifest_job = ""
+        self._update_check_silent = False
+        self._check_update_action: QAction | None = None
+        self._version_history_action: QAction | None = None
 
         # Apply the persisted theme's global stylesheet before building UI so
         # every widget is created already themed.
@@ -187,11 +270,29 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _build_menu_bar(self) -> QMenuBar:
-        menu_bar = QMenuBar()
-        self._build_file_menu(menu_bar.addMenu(tr("menu_file")))
-        self._build_view_menu(menu_bar.addMenu(tr("menu_view")))
-        self._build_help_menu(menu_bar.addMenu(tr("menu_help")))
+        menu_bar = _GlyphMenuBar()
+        self._menu_file = menu_bar.addMenu(tr("menu_file"))
+        self._build_file_menu(self._menu_file)
+        self._menu_view = menu_bar.addMenu(tr("menu_view"))
+        self._build_view_menu(self._menu_view)
+        self._menu_settings = menu_bar.addMenu(tr("menu_settings"))
+        self._build_settings_menu(self._menu_settings)
+        self._menu_help = menu_bar.addMenu(tr("menu_help"))
+        self._build_help_menu(self._menu_help)
+        self._apply_menu_bar_icons()
         return menu_bar
+
+    def _apply_menu_bar_icons(self) -> None:
+        for kind, menu in (
+            ("file", self._menu_file),
+            ("view", self._menu_view),
+            ("settings", self._menu_settings),
+            ("help", self._menu_help),
+        ):
+            menu.menuAction().setProperty("menu_kind", kind)
+        bar = self.menuBar()
+        if bar is not None:
+            bar.update()
 
     def _add_action(self, menu, label_key: str, slot, shortcut: str = "") -> QAction:
         action = QAction(tr(label_key), self)
@@ -238,24 +339,40 @@ class MainWindow(QMainWindow):
             checked=self._monitor_view.is_visibility_panel_expanded(), shortcut="Ctrl+J")
 
         menu.addSeparator()
+        self._add_action(menu, "menu_overlay_toggle", self._toggle_overlays_visible, "F9")
+        _align_mixed_menu(menu)
 
+    def _build_settings_menu(self, menu) -> None:
         self._dark_action = self._add_toggle(
             menu, "menu_dark_mode", self._on_dark_mode_toggled,
             checked=theme.current_theme().is_dark, shortcut="Ctrl+D")
         self._ontop_action = self._add_toggle(
             menu, "always_on_top", self._toggle_always_on_top, shortcut="Ctrl+T")
-        self._add_action(menu, "menu_overlay_toggle", self._toggle_overlays_visible, "F9")
         self._click_through_action = self._add_toggle(
             menu, "menu_click_through", self._toggle_click_through,
             checked=self._click_through)
+        lang_menu = menu.addMenu(tr("menu_language"))
+        lang_group = QActionGroup(self)
+        lang_group.setExclusive(True)
+        current = get_locale()
+        for loc in UI_LOCALES:
+            action = QAction(LOCALE_NATIVE_NAMES[loc], self)
+            action.setCheckable(True)
+            action.setData(loc)
+            action.setChecked(loc == current)
+            lang_group.addAction(action)
+            lang_menu.addAction(action)
+        lang_group.triggered.connect(self._on_language_chosen)
         _align_mixed_menu(menu)
 
     def _build_help_menu(self, menu) -> None:
         self._add_action(menu, "menu_shortcuts", self._show_shortcuts, "F1")
         self._add_action(menu, "menu_user_manual", self._show_user_manual)
         menu.addSeparator()
-        self._add_action(menu, "menu_check_update", self._check_update)
-        self._add_action(menu, "menu_version_history", self._show_version_history)
+        self._check_update_action = self._add_action(
+            menu, "menu_check_update", self._check_update)
+        self._version_history_action = self._add_action(
+            menu, "menu_version_history", self._show_version_history)
         self._add_action(menu, "menu_changelog", self._show_changelog)
         self._add_action(menu, "menu_github", self._open_github)
         menu.addSeparator()
@@ -412,7 +529,7 @@ class MainWindow(QMainWindow):
             ov.set_suppressed(self._overlays_suppressed)
 
     def _toggle_click_through(self, checked: bool):
-        """View menu: toggle mouse click-through on all overlays (persisted)."""
+        """Settings menu: toggle mouse click-through on all overlays (persisted)."""
         self._click_through = checked
         app_config.set("overlay_click_through", checked)
         for ov in self._overlays.values():
@@ -447,12 +564,13 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._connect_screen_change_hooks)
 
     def _on_dark_mode_toggled(self, checked: bool):
-        """Switch theme from the View → Dark Mode action."""
+        """Switch theme from the Settings → Dark Mode action."""
         theme.set_theme("dark" if checked else "light")
 
     def _on_theme_changed(self):
         """Re-apply global QSS and re-sync the toggle after a theme switch."""
         theme.apply_app_qss()
+        self._apply_menu_bar_icons()
         self._status_label.setStyleSheet(self._status_label_qss())
         self._apply_dev_badge_style()
         # Re-sync the checkbox without re-emitting toggled (avoids feedback loop).
@@ -508,7 +626,6 @@ class MainWindow(QMainWindow):
 
     def _auto_check_update(self):
         """Startup auto-check: packaged EXE only; quiet unless an update exists."""
-        import sys
         if not getattr(sys, "frozen", False):
             return
         self._run_update_check(silent=True)
@@ -518,8 +635,9 @@ class MainWindow(QMainWindow):
 
         silent=True is used for startup auto-check: no modal for no-update or
         network/JSON errors, but still prompts when an update is available.
+        Dev mode returns on the GUI thread with no network.
         """
-        import sys
+        self._update_check_silent = silent
         if not getattr(sys, "frozen", False):
             if not silent:
                 QMessageBox.information(
@@ -528,61 +646,78 @@ class MainWindow(QMainWindow):
                     tr("update_dev_mode", APP_VERSION),
                 )
             return
+        self._start_manifest_job("check")
 
-        if not silent:
-            self._status_bar.showMessage(tr("update_checking"))
-        service = AppUpdateService()
+    def _set_update_actions_enabled(self, enabled: bool) -> None:
+        if self._check_update_action is not None:
+            self._check_update_action.setEnabled(enabled)
+        if self._version_history_action is not None:
+            self._version_history_action.setEnabled(enabled)
 
-        try:
-            result = service.check_for_update()
-        except Exception as e:
-            logger.exception("Update check failed")
-            if silent:
-                logger.warning("Startup update check failed: %s", e)
-                self._status_bar.showMessage(tr("status_ready"))
-            else:
+    def _start_manifest_job(self, job: str) -> None:
+        if self._manifest_worker is not None and self._manifest_worker.isRunning():
+            return
+        worker = ManifestWorker(AppUpdateService(), job, self)
+        worker.check_finished.connect(self._on_update_check_finished)
+        worker.manifest_finished.connect(self._on_version_history_finished)
+        worker.failed.connect(self._on_manifest_failed)
+        worker.finished.connect(self._on_manifest_worker_finished)
+        self._manifest_worker = worker
+        self._manifest_job = job
+        self._set_update_actions_enabled(False)
+        self._status_bar.showMessage(tr("update_checking"))
+        worker.start()
+
+    def _on_manifest_worker_finished(self) -> None:
+        self._set_update_actions_enabled(True)
+        worker = self._manifest_worker
+        self._manifest_worker = None
+        if worker is not None:
+            worker.deleteLater()
+
+    def _on_update_check_finished(self, result) -> None:
+        self._status_bar.showMessage(tr("status_ready"))
+        if result.status == "update_available":
+            answer = QMessageBox.question(
+                self,
+                tr("update_available_title"),
+                tr(
+                    "update_available_text",
+                    result.current_version,
+                    result.remote_version,
+                ),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if answer != QMessageBox.Yes:
+                return
+            manifest = result.remote_manifest
+            if manifest is None:
                 QMessageBox.critical(
                     self, tr("update_check_title"),
-                    tr("update_check_failed", str(e)),
+                    tr("update_install_failed", "No manifest available"),
                 )
-                self._status_bar.showMessage(tr("status_ready"))
+                return
+            self._run_install(AppUpdateService(), manifest, tr("update_check_title"))
             return
-
-        if result.status == "up_to_date":
-            if not silent:
-                QMessageBox.information(
-                    self,
-                    tr("update_check_title"),
-                    tr("update_up_to_date", result.current_version),
-                )
-            self._status_bar.showMessage(tr("status_ready"))
+        if self._update_check_silent:
             return
-
-        # Update available (prompt even during startup auto-check)
-        answer = QMessageBox.question(
+        QMessageBox.information(
             self,
-            tr("update_available_title"),
-            tr(
-                "update_available_text",
-                result.current_version,
-                result.remote_version,
-            ),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes,
+            tr("update_check_title"),
+            tr("update_up_to_date", result.current_version),
         )
-        if answer != QMessageBox.Yes:
-            self._status_bar.showMessage(tr("status_ready"))
-            return
 
-        manifest = result.remote_manifest
-        if manifest is None:
-            QMessageBox.critical(
-                self, tr("update_check_title"),
-                tr("update_install_failed", "No manifest available"),
-            )
-            self._status_bar.showMessage(tr("status_ready"))
+    def _on_manifest_failed(self, message: str) -> None:
+        self._status_bar.showMessage(tr("status_ready"))
+        if self._manifest_job == "check" and self._update_check_silent:
+            logger.warning("Startup update check failed: %s", message)
             return
-        self._run_install(service, manifest, tr("update_check_title"))
+        title = (
+            tr("rollback_title") if self._manifest_job == "manifest"
+            else tr("update_check_title")
+        )
+        QMessageBox.critical(self, title, tr("update_check_failed", message))
 
     def _run_install(self, service: AppUpdateService, manifest: dict, title: str):
         """Download + install behind a progress dialog, then restart on success."""
@@ -624,26 +759,18 @@ class MainWindow(QMainWindow):
 
     def _show_version_history(self):
         """Fetch the manifest and offer rollback to the previous release."""
-        import sys
         if not getattr(sys, "frozen", False):
             QMessageBox.information(
                 self, tr("rollback_title"), tr("update_dev_mode", APP_VERSION))
             return
-        self._status_bar.showMessage(tr("update_checking"))
-        service = AppUpdateService()
-        try:
-            manifest = service.fetch_manifest()
-        except Exception as e:
-            logger.exception("Version history manifest fetch failed")
-            QMessageBox.critical(
-                self, tr("rollback_title"), tr("update_check_failed", str(e)))
-            self._status_bar.showMessage(tr("status_ready"))
-            return
+        self._start_manifest_job("manifest")
+
+    def _on_version_history_finished(self, manifest: dict) -> None:
+        self._status_bar.showMessage(tr("status_ready"))
         previous = manifest.get("previous")
         if not previous or not isinstance(previous, dict):
             QMessageBox.information(
                 self, tr("rollback_title"), tr("rollback_no_previous"))
-            self._status_bar.showMessage(tr("status_ready"))
             return
         prev_ver = str(previous.get("version", "?"))
         answer = QMessageBox.question(
@@ -652,9 +779,26 @@ class MainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
         )
         if answer != QMessageBox.Yes:
-            self._status_bar.showMessage(tr("status_ready"))
             return
-        self._run_install(service, previous, tr("rollback_title"))
+        self._run_install(AppUpdateService(), previous, tr("rollback_title"))
+
+    def _on_language_chosen(self, action: QAction) -> None:
+        loc = action.data()
+        if loc == get_locale() or loc not in UI_LOCALES:
+            return
+        app_config.set("locale", loc)
+        set_locale(loc)
+        self._replace_main_window()
+
+    def _replace_main_window(self) -> None:
+        """Rebuild the window in the same QApplication after a language switch."""
+        replacement = MainWindow()
+        app = QApplication.instance()
+        if app is not None:
+            app._igp_main_window = replacement
+        replacement.show()
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        self.close()
 
     def showEvent(self, event):
         # Toggling always-on-top recreates the native window, which drops the
@@ -666,6 +810,9 @@ class MainWindow(QMainWindow):
         win_chrome.apply_to_widget(self)
 
     def closeEvent(self, event):
+        worker = self._manifest_worker
+        if worker is not None and worker.isRunning():
+            worker.wait(8000)
         app_config.set("window_geometry", self.saveGeometry().toBase64().data().decode())
         if getattr(self, "_splitter", None) is not None:
             app_config.set("splitter_state", self._splitter.saveState().toBase64().data().decode())

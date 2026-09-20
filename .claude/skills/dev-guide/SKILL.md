@@ -59,6 +59,6 @@ After a large change you **must**:
 3. If you add/remove a module, update this index and the Key Modules table in `CLAUDE.md`
 4. If you touched metric fields, run `verify-metrics`
 
-**Language:** project-owned skills, `CLAUDE.md`, source comments, and commit messages stay **English**. Do not add Chinese comments or skill prose. UI copy stays bilingual (`en` / `zh_CN`). Chinese user-facing copy lives in `src/i18n/zh_CN.py`, `docs/zh-CN/`, `docs/zh-TW/`, and `CHANGELOG.zh-CN.md` (same detail as `CHANGELOG.md`, not a shorter summary).
+**Language:** project-owned skills, `CLAUDE.md`, source comments, and commit messages stay **English**. Do not add Chinese comments or skill prose. UI copy stays bilingual (`en` / `zh_CN`). Chinese user-facing copy lives in `src/i18n/locales/zh_CN.json`, `docs/zh-CN/`, `docs/zh-TW/`, and `CHANGELOG.zh-CN.md` (same detail as `CHANGELOG.md`, not a shorter summary).
 
 > A script cannot write these notes (an LLM has to judge). This rule + `CLAUDE.md` + the Stop hook is the semi-automatic loop.

@@ -16,7 +16,8 @@ from PyQt5.QtWidgets import (
 
 from src.core.app_update_service import (
     STAGE_APP, STAGE_INSTALL, STAGE_UPDATER, STAGE_VERIFY,
-    AppUpdateCancelled, AppUpdateInstallResult, AppUpdateService, UpdateProgress,
+    AppUpdateCancelled, AppUpdateCheckResult, AppUpdateInstallResult,
+    AppUpdateService, UpdateProgress,
 )
 from src.i18n import tr
 from src.ui import theme
@@ -34,6 +35,34 @@ _MB = 1024 * 1024
 
 def _format_mb(value: int) -> str:
     return f"{value / _MB:.1f} MB"
+
+
+class ManifestWorker(QThread):
+    """Fetch the GitHub release manifest off the GUI thread.
+
+    A 20s urllib timeout on the GUI thread froze Help → Check for Updates
+    (and Version History) whenever GitHub was slow. The JSON is tiny; there
+    is no progress bar, only status-bar copy.
+    """
+
+    check_finished = pyqtSignal(object)      # AppUpdateCheckResult
+    manifest_finished = pyqtSignal(object)   # dict
+    failed = pyqtSignal(str)
+
+    def __init__(self, service: AppUpdateService, job: str, parent=None):
+        super().__init__(parent)
+        self._service = service
+        self.job = job  # "check" | "manifest"
+
+    def run(self) -> None:
+        try:
+            if self.job == "check":
+                result: AppUpdateCheckResult = self._service.check_for_update()
+                self.check_finished.emit(result)
+            else:
+                self.manifest_finished.emit(self._service.fetch_manifest())
+        except Exception as exc:                      # noqa: BLE001 — reported to the user
+            self.failed.emit(str(exc))
 
 
 class _InstallWorker(QThread):

@@ -1,22 +1,11 @@
-"""English translations."""
-
-TRANSLATIONS: dict[str, str] = {
-    # main.py
+{
+  "native_name": "English",
+  "strings": {
     "admin_required_title": "Administrator Required",
-    "admin_required_text": (
-        "IGP Performance Monitor requires Administrator privileges to run.\n\n"
-        'Right-click IGPPerformanceMonitor.exe and select "Run as Administrator",\n'
-        "or run from an Administrator command prompt."
-    ),
-    "admin_required_detail": (
-        "PresentMon uses Windows ETW (Event Tracing for Windows) to capture "
-        "graphics performance data, which requires Administrator privileges "
-        "or membership in the \"Performance Log Users\" group."
-    ),
+    "admin_required_text": "IGP Performance Monitor requires Administrator privileges to run.\n\nRight-click IGPPerformanceMonitor.exe and select \"Run as Administrator\",\nor run from an Administrator command prompt.",
+    "admin_required_detail": "PresentMon uses Windows ETW (Event Tracing for Windows) to capture graphics performance data, which requires Administrator privileges or membership in the \"Performance Log Users\" group.",
     "elevation_failed": "Elevation Failed",
     "elevation_failed_text": "Failed to request administrator privileges: {}",
-
-    # main_window.py
     "window_title": "IGP Performance Monitor",
     "window_title_dev": "{}  [dev]",
     "dev_badge": "DEV",
@@ -27,16 +16,11 @@ TRANSLATIONS: dict[str, str] = {
     "status_capture_stopped": "Capture stopped",
     "status_error": "Error: {}",
     "no_processes_title": "No Processes",
-    "no_processes_text": (
-        "Please add at least one process to monitor.\n\n"
-        "Leave empty to capture ALL processes (not recommended for live monitoring)."
-    ),
+    "no_processes_text": "Please add at least one process to monitor.\n\nLeave empty to capture ALL processes (not recommended for live monitoring).",
     "capture_error_title": "Capture Error",
     "export_csv_action": "Export CSV...",
     "toolbar_main": "Main",
     "always_on_top": "Always on Top",
-
-    # process_panel.py
     "process_selection": "Process Selection",
     "placeholder_process": "Enter process name (e.g., game.exe)",
     "btn_add": "Add",
@@ -50,18 +34,10 @@ TRANSLATIONS: dict[str, str] = {
     "tooltip_add": "Add to monitored",
     "tooltip_remove": "Remove from monitored",
     "btn_refresh": "Refresh Process List",
-    "process_instance_hint": (
-        "Same-name programs are listed as separate instances (window title + PID). "
-        "Click a row to flash its window; right-click to switch to it."
-    ),
+    "process_instance_hint": "Same-name programs are listed as separate instances (window title + PID). Click a row to flash its window; right-click to switch to it.",
     "menu_switch_to": "Switch to this window",
     "process_not_running_title": "Process not running",
-    "process_not_running_text": (
-        "None of the selected instances are running.\n\n"
-        "Refresh the list and pick a live process."
-    ),
-
-    # monitor_view.py
+    "process_not_running_text": "None of the selected instances are running.\n\nRefresh the list and pick a live process.",
     "live_statistics": "Live Statistics",
     "fps_over_time": "FPS Over Time",
     "frame_time": "Frame Time",
@@ -109,17 +85,12 @@ TRANSLATIONS: dict[str, str] = {
     "charts_panel": "Show / hide charts",
     "menu_charts_panel": "Charts Panel",
     "system_info_panel": "System info",
-
-    # csv_export.py
     "export_title": "Export to CSV",
     "capture_summary": "Capture Summary",
     "total_frames": "Total frames",
     "duration": "Duration",
     "seconds_unit": "seconds",
-    "export_session_note": (
-        "This file is the current session only. Starting capture again "
-        "clears those frames, so a later export will not include them."
-    ),
+    "export_session_note": "This file is the current session only. Starting capture again clears those frames, so a later export will not include them.",
     "export_scope": "Export Scope",
     "all_frames": "All captured frames",
     "per_process": "Per-process (separate file for each)",
@@ -145,18 +116,16 @@ TRANSLATIONS: dict[str, str] = {
     "summary_max_fps": "Max FPS",
     "summary_1p_low": "1% Low (P99)",
     "summary_5p_low": "5% Low (P95)",
-
-    # wrapper
     "wrapper_starting": "Starting PresentMon, waiting for frames...",
     "wrapper_stopped": "PresentMon stopped normally.",
     "wrapper_access_denied": "Access denied. Run as Administrator or join 'Performance Log Users' group.",
     "wrapper_not_found": "PresentMon executable not found: {}",
     "wrapper_no_config": "No configuration set.",
     "wrapper_exit_error": "PresentMon exited with code {}: {}",
-
-    # menu bar
     "menu_file": "File",
     "menu_view": "View",
+    "menu_settings": "Settings",
+    "menu_language": "Language",
     "menu_help": "Help",
     "menu_import_csv": "Import CSV...",
     "menu_check_update": "Check for Updates...",
@@ -167,8 +136,6 @@ TRANSLATIONS: dict[str, str] = {
     "rollback_progress": "Rolling back — {}",
     "menu_about": "About...",
     "menu_github": "View on GitHub",
-
-    # update
     "update_check_title": "Update Check",
     "update_dev_mode": "Running in dev mode ({}).\n\nSelf-update is only available in the packaged EXE.",
     "update_checking": "Checking for updates...",
@@ -186,22 +153,12 @@ TRANSLATIONS: dict[str, str] = {
     "update_installing": "Installing update, restarting...",
     "update_install_failed": "Install failed:\n{}",
     "about_title": "About IGP Performance Monitor",
-    "about_text": (
-        "<b>IGP Performance Monitor</b><br><br>"
-        "Version: {}<br><br>"
-        "Real-time graphics performance monitoring powered by Intel PresentMon.<br>"
-        "Supports FPS, frame time, CPU, GPU, VRAM, and per-process metrics.<br><br>"
-        "Open source: https://github.com/MlsMoon/IGPPerformanceMonitor"
-    ),
-
-    # csv_analysis_dialog.py
+    "about_text": "<b>IGP Performance Monitor</b><br><br>Version: {}<br><br>Real-time graphics performance monitoring powered by Intel PresentMon.<br>Supports FPS, frame time, CPU, GPU, VRAM, and per-process metrics.<br><br>Open source: https://github.com/MlsMoon/IGPPerformanceMonitor",
     "analysis_title": "CSV Analysis",
     "analysis_no_data": "No valid frame data found in the selected file.",
     "import_file_path": "File",
     "import_file_filter": "CSV Files (*.csv)",
     "total_ram": "Total RAM",
-
-    # changelog dialog
     "changelog_title": "Changelog",
     "menu_changelog": "Changelog",
     "changelog_empty": "No changelog entries yet.",
@@ -211,8 +168,6 @@ TRANSLATIONS: dict[str, str] = {
     "user_manual_page_guide": "User guide",
     "user_manual_page_troubleshooting": "Troubleshooting",
     "user_manual_empty": "The user manual is not available in this build.",
-
-    # shortcuts / overlay / 0-frame warnings (Tier 0)
     "menu_shortcuts": "Keyboard Shortcuts...",
     "shortcuts_title": "Keyboard Shortcuts",
     "menu_capture_toggle": "Start/Stop Capture",
@@ -220,7 +175,7 @@ TRANSLATIONS: dict[str, str] = {
     "menu_click_through": "Click-through",
     "sc_capture": "Start / Stop capture",
     "sc_overlay": "Show / Hide overlays",
-    "sc_click_through": "Toggle overlay click-through (menu)",
+    "sc_click_through": "Toggle overlay click-through (Settings menu)",
     "sc_theme": "Toggle dark / light theme",
     "sc_export": "Export CSV",
     "sc_import": "Import CSV",
@@ -234,9 +189,9 @@ TRANSLATIONS: dict[str, str] = {
     "ov_na": "N/A",
     "ov_dash": "--",
     "warn_no_frames_title": "No Frames Captured",
-    "warn_no_frames_text": (
-        "No frames were captured in this session.\n\n"
-        "Check that the process name is correct and the target app is "
-        "rendering (not a background service)."
-    ),
+    "warn_no_frames_text": "No frames were captured in this session.\n\nCheck that the process name is correct and the target app is rendering (not a background service).",
+    "language_picker_title": "Language",
+    "language_picker_hint": "Choose a language",
+    "language_picker_ok": "OK"
+  }
 }

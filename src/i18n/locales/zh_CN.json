@@ -1,21 +1,11 @@
-"""Chinese (Simplified) translations."""
-
-TRANSLATIONS: dict[str, str] = {
-    # main.py
+{
+  "native_name": "简体中文",
+  "strings": {
     "admin_required_title": "需要管理员权限",
-    "admin_required_text": (
-        "IGP 性能监控器需要管理员权限才能运行。\n\n"
-        '请右键 IGPPerformanceMonitor.exe 选择 [以管理员身份运行]，\n'
-        "或在管理员命令提示符中启动。"
-    ),
-    "admin_required_detail": (
-        "PresentMon 通过 Windows ETW（事件跟踪）捕获图形性能数据，\n"
-        '需要管理员权限或加入 Performance Log Users 用户组。'
-    ),
+    "admin_required_text": "IGP 性能监控器需要管理员权限才能运行。\n\n请右键 IGPPerformanceMonitor.exe 选择 [以管理员身份运行]，\n或在管理员命令提示符中启动。",
+    "admin_required_detail": "PresentMon 通过 Windows ETW（事件跟踪）捕获图形性能数据，\n需要管理员权限或加入 Performance Log Users 用户组。",
     "elevation_failed": "提权失败",
     "elevation_failed_text": "无法获取管理员权限：{}",
-
-    # main_window.py
     "window_title": "IGP 性能监控器",
     "window_title_dev": "{}  [开发模式]",
     "dev_badge": "开发模式",
@@ -26,16 +16,11 @@ TRANSLATIONS: dict[str, str] = {
     "status_capture_stopped": "采集已停止",
     "status_error": "错误：{}",
     "no_processes_title": "未添加进程",
-    "no_processes_text": (
-        "请至少添加一个要监控的进程。\n\n"
-        "留空将捕获所有进程（不建议用于实时监控）。"
-    ),
+    "no_processes_text": "请至少添加一个要监控的进程。\n\n留空将捕获所有进程（不建议用于实时监控）。",
     "capture_error_title": "采集错误",
     "export_csv_action": "导出 CSV...",
     "toolbar_main": "主工具栏",
     "always_on_top": "窗口总在最前",
-
-    # process_panel.py
     "process_selection": "进程选择",
     "placeholder_process": "输入进程名称（例如：game.exe）",
     "btn_add": "添加",
@@ -49,18 +34,10 @@ TRANSLATIONS: dict[str, str] = {
     "tooltip_add": "加入监控",
     "tooltip_remove": "移出监控",
     "btn_refresh": "刷新进程列表",
-    "process_instance_hint": (
-        "同名程序按实例列出（窗口标题 + PID）。"
-        "单击一行可闪烁对应窗口，右键可切换到该窗口。"
-    ),
+    "process_instance_hint": "同名程序按实例列出（窗口标题 + PID）。单击一行可闪烁对应窗口，右键可切换到该窗口。",
     "menu_switch_to": "切换到此窗口",
     "process_not_running_title": "进程未运行",
-    "process_not_running_text": (
-        "所选实例当前都不在运行。\n\n"
-        "请刷新列表后选择一个正在运行的进程。"
-    ),
-
-    # monitor_view.py
+    "process_not_running_text": "所选实例当前都不在运行。\n\n请刷新列表后选择一个正在运行的进程。",
     "live_statistics": "实时统计",
     "fps_over_time": "FPS 时间曲线",
     "frame_time": "帧时间",
@@ -108,17 +85,12 @@ TRANSLATIONS: dict[str, str] = {
     "charts_panel": "显示 / 隐藏图表",
     "menu_charts_panel": "图表面板",
     "system_info_panel": "系统信息",
-
-    # csv_export.py
     "export_title": "导出到 CSV",
     "capture_summary": "采集摘要",
     "total_frames": "总帧数",
     "duration": "持续时间",
     "seconds_unit": "秒",
-    "export_session_note": (
-        "本次导出仅包含当前这次采集。再次开始采集会清空已采集的帧，"
-        "之后再导出不会带上本次内容。"
-    ),
+    "export_session_note": "本次导出仅包含当前这次采集。再次开始采集会清空已采集的帧，之后再导出不会带上本次内容。",
     "export_scope": "导出范围",
     "all_frames": "所有采集的帧",
     "per_process": "按进程分开（每个进程单独文件）",
@@ -144,18 +116,16 @@ TRANSLATIONS: dict[str, str] = {
     "summary_max_fps": "最高 FPS",
     "summary_1p_low": "1% Low (P99)",
     "summary_5p_low": "5% Low (P95)",
-
-    # wrapper
     "wrapper_starting": "正在启动 PresentMon，等待帧数据...",
     "wrapper_stopped": "PresentMon 已正常停止。",
     "wrapper_access_denied": "访问被拒绝。请以管理员身份运行或加入 'Performance Log Users' 组。",
     "wrapper_not_found": "找不到 PresentMon 可执行文件：{}",
     "wrapper_no_config": "未设置配置。",
     "wrapper_exit_error": "PresentMon 异常退出，代码 {}：{}",
-
-    # menu bar
     "menu_file": "文件",
     "menu_view": "视图",
+    "menu_settings": "设置",
+    "menu_language": "语言",
     "menu_help": "帮助",
     "menu_import_csv": "导入 CSV...",
     "menu_check_update": "检查更新...",
@@ -166,8 +136,6 @@ TRANSLATIONS: dict[str, str] = {
     "rollback_progress": "回退中 — {}",
     "menu_about": "关于...",
     "menu_github": "在 GitHub 上查看",
-
-    # update
     "update_check_title": "更新检查",
     "update_dev_mode": "当前为开发模式（{}）。\n\n自更新仅在打包的 EXE 中可用。",
     "update_checking": "正在检查更新...",
@@ -185,22 +153,12 @@ TRANSLATIONS: dict[str, str] = {
     "update_installing": "正在安装更新，即将重启...",
     "update_install_failed": "安装失败：\n{}",
     "about_title": "关于 IGP 性能监控器",
-    "about_text": (
-        "<b>IGP 性能监控器</b><br><br>"
-        "版本：{}<br><br>"
-        "基于 Intel PresentMon 的实时图形性能监控工具。<br>"
-        "支持 FPS、帧时间、CPU、GPU、显存及逐进程指标。<br><br>"
-        "开源地址：https://github.com/MlsMoon/IGPPerformanceMonitor"
-    ),
-
-    # csv_analysis_dialog.py
+    "about_text": "<b>IGP 性能监控器</b><br><br>版本：{}<br><br>基于 Intel PresentMon 的实时图形性能监控工具。<br>支持 FPS、帧时间、CPU、GPU、显存及逐进程指标。<br><br>开源地址：https://github.com/MlsMoon/IGPPerformanceMonitor",
     "analysis_title": "CSV 分析",
     "analysis_no_data": "所选文件中无有效帧数据。",
     "import_file_path": "文件",
     "import_file_filter": "CSV 文件 (*.csv)",
     "total_ram": "总内存",
-
-    # changelog dialog
     "changelog_title": "更新记录",
     "menu_changelog": "更新记录",
     "changelog_empty": "暂无更新记录。",
@@ -210,8 +168,6 @@ TRANSLATIONS: dict[str, str] = {
     "user_manual_page_guide": "使用指南",
     "user_manual_page_troubleshooting": "排障",
     "user_manual_empty": "当前构建未包含用户手册。",
-
-    # Shortcuts / overlay / 0-frame warning (Tier 0)
     "menu_shortcuts": "快捷键...",
     "shortcuts_title": "键盘快捷键",
     "menu_capture_toggle": "开始/停止采集",
@@ -219,7 +175,7 @@ TRANSLATIONS: dict[str, str] = {
     "menu_click_through": "鼠标穿透",
     "sc_capture": "开始 / 停止采集",
     "sc_overlay": "显示 / 隐藏悬浮窗",
-    "sc_click_through": "切换悬浮窗鼠标穿透（菜单）",
+    "sc_click_through": "切换悬浮窗鼠标穿透（设置菜单）",
     "sc_theme": "切换深色 / 浅色主题",
     "sc_export": "导出 CSV",
     "sc_import": "导入 CSV",
@@ -233,8 +189,9 @@ TRANSLATIONS: dict[str, str] = {
     "ov_na": "N/A",
     "ov_dash": "--",
     "warn_no_frames_title": "未采集到帧",
-    "warn_no_frames_text": (
-        "本次采集未捕获到任何帧。\n\n"
-        "请确认进程名正确，且目标应用正在渲染（非后台服务）。"
-    ),
+    "warn_no_frames_text": "本次采集未捕获到任何帧。\n\n请确认进程名正确，且目标应用正在渲染（非后台服务）。",
+    "language_picker_title": "语言",
+    "language_picker_hint": "选择语言",
+    "language_picker_ok": "确定"
+  }
 }

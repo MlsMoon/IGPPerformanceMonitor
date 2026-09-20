@@ -1,6 +1,6 @@
 """User configuration: a JSON file at %APPDATA%/IGPPerformanceMonitor/config.json.
 
-Single editable settings file (theme, chart_visibility, ...). Replaces the old
+Single editable settings file (theme, locale, chart_visibility, ...). Replaces the old
 QSettings (Windows registry) persistence; on first run the legacy registry
 values are migrated here so no preference is lost.
 

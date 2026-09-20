@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import QFrame, QScrollArea
 from PyQt5.QtGui import QFontMetrics
 
 from src import selfcheck
-from src.i18n import tr
+from src.i18n import UI_LOCALES, tr
 from src.models import frame_series_key, pretty_series_key
 from src.selfcheck import data
 from src.selfcheck.replay import SETTLE_MS as _SETTLE_MS, seed_window, spin as _spin
@@ -121,6 +121,7 @@ def _describe_window(report: Report, window: MainWindow) -> None:
                     shortcuts.add(text)
         report.fact("menu shortcuts", " ".join(sorted(shortcuts)) or "(none)")
         report.fact("click-through default", window._click_through_action.isChecked())
+        _describe_menus(report, window)
 
     with report.step("native title bar theming"):
         # Must be a safe no-op off Windows and offscreen.
@@ -140,6 +141,67 @@ def _describe_window(report: Report, window: MainWindow) -> None:
                 "which permanently costs a compositing pass on every repaint")
         report.fact("hover duration ms", motion.FAST)
         report.fact("exit duration ms", motion.exit_duration(motion.NORMAL))
+
+
+def _action_label(action) -> str:
+    return action.text().replace("&", "")
+
+
+def _menu_by_title(window: MainWindow, title: str):
+    return next(
+        action for action in window.menuBar().actions()
+        if _action_label(action) == title
+    )
+
+
+def _describe_menus(report: Report, window: MainWindow) -> None:
+    titles = [_action_label(a) for a in window.menuBar().actions()]
+    report.fact("menu titles", " | ".join(titles))
+    expected = [
+        tr("menu_file"), tr("menu_view"),
+        tr("menu_settings"), tr("menu_help"),
+    ]
+    if titles != expected:
+        report.error(f"expected menus {expected}, got {titles}")
+    kinds = [a.property("menu_kind") for a in window.menuBar().actions()]
+    report.fact("menu bar glyphs", " ".join(str(k) for k in kinds if k) or "(none)")
+    if kinds != ["file", "view", "settings", "help"]:
+        report.error(
+            f"menu bar glyphs expected file view settings help, got {kinds}"
+        )
+    fm = window.menuBar().fontMetrics()
+    for action in window.menuBar().actions():
+        title = _action_label(action)
+        geo = window.menuBar().actionGeometry(action)
+        need = fm.horizontalAdvance(title) + 16 + 8
+        report.fact(f"menu bar {title} width", geo.width())
+        if geo.width() < need:
+            report.error(
+                f"menu bar item {title!r} is {geo.width()}px, need ≥ {need}px "
+                "for glyph plus label (left padding must leave room for 16px)"
+            )
+
+    settings = _menu_by_title(window, tr("menu_settings")).menu()
+    settings_labels = [
+        _action_label(a) for a in settings.actions() if not a.isSeparator()
+    ]
+    report.fact("settings actions", ", ".join(settings_labels))
+    if tr("menu_dark_mode") not in settings_labels:
+        report.error("Settings menu missing Dark Mode")
+    lang_action = next(
+        (a for a in settings.actions() if _action_label(a) == tr("menu_language")),
+        None,
+    )
+    lang = lang_action.menu() if lang_action is not None else None
+    if lang is None:
+        report.error("Settings menu missing Language submenu")
+        return
+    locales = [a.data() for a in lang.actions()]
+    report.fact("language submenu", ", ".join(str(x) for x in locales))
+    if list(locales) != list(UI_LOCALES):
+        report.error(
+            f"Language submenu expected {list(UI_LOCALES)}, got {locales}"
+        )
 
 
 def _describe_chips(report: Report, window: MainWindow) -> None:
@@ -551,13 +613,18 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
                     path = os.path.join(shots, f"{name}-{width}x{height}.png")
                     window.grab().save(path)
                     written.append(path)
-                    # View mixes checkable and plain rows; grab the open menu
-                    # so an indent regression is visible. Size is independent
-                    # of the window, so once per theme is enough.
+                    # View and Settings mix checkable rows with a submenu;
+                    # grab the open menus so an indent regression is visible.
+                    # Size is independent of the window, so once per theme.
                     if (width, height) == (1280, 800):
-                        menu_path = os.path.join(shots, f"{name}-view-menu.png")
-                        _grab_view_menu(window, menu_path)
-                        written.append(menu_path)
+                        view_path = os.path.join(shots, f"{name}-view-menu.png")
+                        _grab_named_menu(window, tr("menu_view"), view_path)
+                        written.append(view_path)
+                        settings_path = os.path.join(
+                            shots, f"{name}-settings-menu.png")
+                        _grab_named_menu(
+                            window, tr("menu_settings"), settings_path)
+                        written.append(settings_path)
         finally:
             theme.set_theme(started_on)
 
@@ -616,14 +683,11 @@ def _check_stats_follows_theme(
         )
 
 
-def _grab_view_menu(window: MainWindow, path: str) -> None:
-    """Popup View, grab the dropdown, then dismiss it."""
-    view = next(
-        action for action in window.menuBar().actions()
-        if action.text().replace("&", "") == tr("menu_view")
-    )
-    menu = view.menu()
-    geo = window.menuBar().actionGeometry(view)
+def _grab_named_menu(window: MainWindow, title: str, path: str) -> None:
+    """Popup a top-level menu, grab the dropdown, then dismiss it."""
+    item = _menu_by_title(window, title)
+    menu = item.menu()
+    geo = window.menuBar().actionGeometry(item)
     menu.popup(window.menuBar().mapToGlobal(geo.bottomLeft()))
     _spin(80)
     menu.grab().save(path)

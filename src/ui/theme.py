@@ -293,7 +293,7 @@ def app_qss(t: Theme = None) -> str:
             background-color: {t.window_bg}; color: {t.text_primary};
             border-bottom: 1px solid {t.border}; padding: 3px 6px;
         }}
-        QMenuBar::item {{ background: transparent; padding: 4px 10px; border-radius: {RADIUS_CHIP}px; }}
+        QMenuBar::item {{ background: transparent; padding: 4px 12px 4px 26px; border-radius: {RADIUS_CHIP}px; }}
         QMenuBar::item:selected {{ background: {t.border}; color: {hover}; }}
         QMenuBar::item:pressed {{ background: {t.panel_bg}; color: {hover}; }}
         QMenu {{

@@ -48,6 +48,8 @@ Portable option: run `IGPPerformanceMonitor.exe` from any folder. Right-click �
 
 About 1.5 seconds after launch, a packaged build silently checks GitHub for a newer release.
 
+If `IGP_LANG` is unset and `config.json` has no `locale` yet, a **Language / 语言** dialog asks for English or 简体中文 before the main window. That choice is saved; you can change it later under **Settings → Language**.
+
 ## 3. First capture
 
 1. Start the game or target app so it appears in the process list.
@@ -82,7 +84,8 @@ If the session ends with zero frames, the app warns you: the instance may have e
 ### Menus
 
 - **File** — Start/Stop capture, Import CSV, Export CSV
-- **View** — Per-chart visibility, charts panel, dark mode, always on top, overlay show/hide, click-through
+- **View** — Per-chart visibility, charts panel, overlay show/hide
+- **Settings** — Dark mode, always on top, click-through, language
 - **Help** — Shortcuts, user manual, check for updates, version history (rollback), changelog, GitHub, About
 
 While capturing, process search, add/remove, and the timer are locked. Stop first to change the target list.
@@ -155,15 +158,15 @@ Each overlay shows: app name, FPS (EMA), frame time, app memory, app CPU (and co
 | Action | How |
 |---|---|
 | Hide / show all overlays | **F9** or View → Show/Hide Overlays |
-| Click-through | View → Click-through. Mouse events go to the game. The overlay context menu no longer works; use the View menu. |
+| Click-through | Settings → Click-through. Mouse events go to the game. The overlay context menu no longer works; use the Settings menu. |
 | Close one overlay | Right-click the overlay (unless click-through is on) |
 
 The tracker picks the largest visible, titled, non-tool window for the process. Unity Editor, browsers, and IDEs with many panels usually get the main view, not a floating inspector.
 
 ## 8. Theme and window
 
-- **Ctrl+D** or View → **Dark Mode** toggles dark / light. The native title bar follows on Windows.
-- **Ctrl+T** or View → **Always on Top** pins the main window.
+- **Ctrl+D** or Settings → **Dark Mode** toggles dark / light. The native title bar follows on Windows.
+- **Ctrl+T** or Settings → **Always on Top** pins the main window.
 - Splitter widths (side panel vs charts, stats vs charts) and window geometry are restored on the next launch.
 
 ![The same session in light theme](../images/en/theme-light.png)
@@ -225,10 +228,13 @@ Do not publish updates through object storage. GitHub Releases are the only chan
 The UI has two locales: `en` and `zh_CN`.
 
 1. Environment variable **`IGP_LANG`** wins (`en` or `zh_CN`).
-2. Otherwise a Windows locale that starts with `zh` selects Simplified Chinese.
-3. Everything else is English.
+2. Otherwise the saved `locale` in `%APPDATA%\IGPPerformanceMonitor\config.json`.
+3. Otherwise a Windows locale that starts with `zh` selects Simplified Chinese.
+4. Everything else is English.
 
-There is no in-app language menu. Set the variable on the shortcut or in the shell:
+On first launch with neither `IGP_LANG` nor a saved `locale`, a bilingual picker asks for English or 简体中文. Later, use **Settings → Language** (native names: English, 简体中文). Switching rebuilds the main window in the same session; no UAC relaunch.
+
+`IGP_LANG` still overrides the saved preference on the next start:
 
 ```bat
 set IGP_LANG=zh_CN
@@ -256,7 +262,7 @@ These documentation folders (`zh-TW`, `ja`) do not change the UI.
 | **Ctrl+J** | Show / hide the charts panel |
 | **Ctrl+T** | Always on top |
 | **F1** | Shortcuts window |
-| View → Click-through | Overlay ignores the mouse (no dedicated hotkey) |
+| Settings → Click-through | Overlay ignores the mouse (no dedicated hotkey) |
 
 ## 14. Headless / command line
 
@@ -302,7 +308,7 @@ Scripts\capture_debug.bat --process-name Unity.exe --timed 10
 | Update state / backups | Same AppData folder |
 | Debug log (dev / `--debug` / headless) | `temp\igp_debug.log` next to the repo or the EXE |
 
-`config.json` stores theme, chart visibility, window and splitter geometry, overlay click-through, the monitored process list, and the auto-stop seconds. It is UTF-8 without BOM. Delete the file to reset preferences (a first-run migration from the old registry keys may recreate some values).
+`config.json` stores theme, locale, chart visibility, window and splitter geometry, overlay click-through, the monitored process list, and the auto-stop seconds. It is UTF-8 without BOM. Delete the file to reset preferences (a first-run migration from the old registry keys may recreate some values).
 
 ## 16. Metric glossary
 

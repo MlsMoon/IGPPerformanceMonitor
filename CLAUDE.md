@@ -49,7 +49,7 @@ Third-party **reference** skills (PyQt5; already English):
 
 > Third-party skills are a **reference library**, not project workflow. `pyqt*` comes from `CodeAtCode/oss-ai-skills` (GPL-3.0); `qt-ui-design` from `TheQtCompanyRnD/agent-skills` (BSD-3-Clause / Qt-Commercial).
 
-**Language rule:** project-owned skills, `CLAUDE.md`, source comments, and commit messages are English. Do not add Chinese comments or skill text. User-visible UI stays bilingual (`en` / `zh_CN`). Chinese user-facing copy lives in `src/i18n/zh_CN.py`, `docs/zh-CN/`, `docs/zh-TW/`, and `CHANGELOG.zh-CN.md` (same detail as English `CHANGELOG.md`).
+**Language rule:** project-owned skills, `CLAUDE.md`, source comments, and commit messages are English. Do not add Chinese comments or skill text. User-visible UI stays bilingual (`en` / `zh_CN`). Chinese user-facing copy lives in `src/i18n/locales/zh_CN.json`, `docs/zh-CN/`, `docs/zh-TW/`, and `CHANGELOG.zh-CN.md` (same detail as English `CHANGELOG.md`).
 
 ## Commands
 
@@ -140,4 +140,4 @@ Do **not** publish updates through object storage. Do **not** put cloud keys in 
 
 ## PyInstaller
 
-`config.py` and `app_info.resource_root()` use `sys._MEIPASS` when frozen. Bundle PresentMon, `VERSION`, `CHANGELOG.md`, `CHANGELOG.zh-CN.md`, `docs/`, `build_info.txt`, and `assets/icon.png`. Hidden imports: psutil, pynvml, win32api, win32con, win32pdh. EXE icon: `assets/icon.ico`.
+`config.py` and `app_info.resource_root()` use `sys._MEIPASS` when frozen. Bundle PresentMon, `VERSION`, `CHANGELOG.md`, `CHANGELOG.zh-CN.md`, `docs/`, `src/i18n/locales/`, `build_info.txt`, and `assets/icon.png`. Hidden imports: psutil, pynvml, win32api, win32con, win32pdh. EXE icon: `assets/icon.ico`.

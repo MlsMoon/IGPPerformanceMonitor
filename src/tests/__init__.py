@@ -25,7 +25,7 @@ import traceback
 from src.selfcheck.data import NoRealCapture
 
 MODULES = [
-    "test_i18n",              # every key, both locales
+    "test_i18n",              # every key, every JSON catalog
     "test_csv",               # CSV_COLUMNS vs FrameData, real export/import roundtrip
     "test_release_manifest",  # required manifest fields, URL shape, no BOM
 ]

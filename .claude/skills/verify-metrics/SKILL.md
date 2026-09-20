@@ -28,7 +28,7 @@ sample (SystemMetricsSampler / psutil / NVML)
                 csv_export (CSV_COLUMNS + frame_to_row)
                 csv_analysis_dialog
   -> csv_parser COLUMN_MAP_V2 (import roundtrip)
-  -> i18n en.py / zh_CN.py
+  -> i18n locales/*.json
 ```
 
 Grep each field you touched across `src/` and confirm every stage agrees. If

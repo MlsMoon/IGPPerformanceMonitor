@@ -40,6 +40,7 @@ python -m PyInstaller --noconfirm --onefile --windowed --uac-admin ^
     --add-data "CHANGELOG.md;." ^
     --add-data "CHANGELOG.zh-CN.md;." ^
     --add-data "docs;docs" ^
+    --add-data "src\i18n\locales;src/i18n/locales" ^
     --add-data "assets\icon.png;assets" ^
     --add-data "assets\icon.ico;assets" ^
     --hidden-import psutil ^

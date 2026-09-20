@@ -11,6 +11,43 @@ Do not ship a release whose notes are only the auto-generated
 Headings must stay `## X.Y.Z` — the in-app dialog splits on those lines.
 Use `### Added` / `### Changed` / `### Fixed` / `### For contributors` as needed.
 
+## 0.1.5
+
+Released 2026-09-20.
+
+The menu bar now has a Settings menu and in-app language switching. Help →
+Check for Updates no longer freezes the window while it talks to GitHub, and
+the first launch asks which language to use.
+
+### Added
+
+- A **Settings** menu holds Dark Mode, Always on Top, Click-through, and
+  **Language**. View is only visibility (Charts, Charts Panel, Show/Hide
+  Overlays). File / View / Settings / Help each have a small 16×16 glyph in
+  the menu bar.
+- On the first launch with no saved language, a **Language / 语言** dialog
+  asks for English or 简体中文 before the main window. The choice is stored in
+  `%APPDATA%\IGPPerformanceMonitor\config.json`. Later, **Settings → Language**
+  switches in the same session (no UAC relaunch). `IGP_LANG` still wins if it
+  is set.
+
+### Changed
+
+- Help → Check for Updates and the silent startup check fetch
+  `app_manifest.json` on a worker thread. The window used to freeze for up to
+  20 seconds on GitHub's timeout; the status bar now shows "Checking for
+  updates…" and those Help items stay disabled until the answer arrives.
+  Download/install was already on a progress dialog.
+- Dark Mode, Always on Top, and Click-through moved from View to Settings.
+  When overlay click-through is on and the overlay ignores the mouse, the
+  fallback is the Settings menu, not View.
+
+### For contributors
+
+- UI copy lives in `src/i18n/locales/<locale>.json` (`native_name` +
+  `strings`), not Python dicts. `tr()` is unchanged. PyInstaller bundles the
+  folder.
+
 ## 0.1.4
 
 Released 2026-09-18.

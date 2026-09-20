@@ -21,7 +21,7 @@ Build the portable EXE, updater, Windows installer, and publish them on GitHub R
 ## Pitfalls
 
 - **`build.bat` reads `VERSION`**, writes `build/generated/build_info.txt` = timestamp-gitsha (`APP_BUILD`, **not** the version).
-- **Bundle:** PresentMon, `VERSION`, `CHANGELOG.md`, `CHANGELOG.zh-CN.md`, `docs/`, `build_info.txt`, `assets/icon.png` (+ ico). New resources need `--add-data` (and the matching `installer.iss` `Source:`). The installer also copies `docs\` next to the EXE for browsing on disk; the onefile EXE still reads them from `_MEIPASS`.
+- **Bundle:** PresentMon, `VERSION`, `CHANGELOG.md`, `CHANGELOG.zh-CN.md`, `docs/`, `src/i18n/locales/`, `build_info.txt`, `assets/icon.png` (+ ico). JSON catalogs go in the EXE via `--add-data` (`src/i18n/locales` → `_MEIPASS/src/i18n/locales`); the installer does not copy them next to the EXE. `docs/` is both `--add-data` and an Inno `Source:` so users can browse the manual on disk.
 - **GitHub Release body** is `extract_release_notes.py` output (`body_path`).
   `generate_release_notes: false`. Auto-notes shipped 0.1.0–0.1.3 as only
   `Full Changelog: vA...vB` — do not turn that back on.
