@@ -13,6 +13,8 @@ This guide is organized by module. **Before changing any `src/` module**, read t
 
 Overview / commands / PresentMon quirks live in root `CLAUDE.md`. This skill is "what to watch when you edit this area".
 
+**Develop only on `develop`.** `release` is a fast-forward ship line (tags). If HEAD is `release` and you are not tagging, `git checkout develop` first.
+
 ## Data flow (short)
 
 ```

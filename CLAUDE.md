@@ -108,7 +108,7 @@ Do **not** publish updates through object storage. Do **not** put cloud keys in 
 ## Release / version / update
 
 - **Version source:** root `VERSION` (semver). Bump it for every release.
-- **Branches:** `develop` (default, PRs) and `release` (tags). Both are protected. There is no `main`.
+- **Branches:** `develop` is the only development branch (default, PRs, all product commits). `release` is the ship line: fast-forward from `develop`, then annotated tag `vX.Y.Z`. Do not commit features or fixes on `release`. Both are protected. There is no `main`.
 - **Tag:** annotated `vX.Y.Z` on `release` that **equals** `v` + `VERSION`. CI refuses a mismatch.
 - **Changelog:** `CHANGELOG.md` (English) and `CHANGELOG.zh-CN.md` (Simplified Chinese) are bundled and shown in Help → Changelog. GitHub Release notes are generated from both (`Scripts/extract_release_notes.py`); do not use auto-generated compare-link notes.
 - **User manual:** `docs/<locale>/` is bundled and shown in Help → User Manual (`en` / `zh-CN` follow the UI locale).

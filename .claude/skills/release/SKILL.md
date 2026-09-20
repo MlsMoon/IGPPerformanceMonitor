@@ -26,10 +26,12 @@ The trigger words authorize the git push. **CI is the only binary publisher.** D
 
 | Branch | Role |
 |---|---|
-| `develop` | Default integration branch. Daily work and pull requests land here. |
-| `release` | Stabilization / ship line. Cut annotated tags (`vX.Y.Z`) from here. |
+| `develop` | **The only development branch.** Default integration line. Daily work, PRs, and agent edits land here. |
+| `release` | Ship line only. Fast-forward from `develop`, then cut annotated tags (`vX.Y.Z`). No feature or fix commits. |
 
 Both branches are **protected** (no force-push, no delete). Do not recreate `main` / `master`.
+
+If HEAD is `release` and the task is not “ship this version”, `git checkout develop` first. After a tag, switch back to `develop`. Never commit product work on `release` and leave `develop` behind.
 
 ## Language
 

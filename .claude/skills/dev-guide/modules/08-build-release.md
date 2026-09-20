@@ -33,7 +33,7 @@ Build the portable EXE, updater, Windows installer, and publish them on GitHub R
 - **CI sets `CI=true`** so `build.bat` skips `pause`.
 - **Inno Setup 6** (`ISCC.exe`) is required for the installer. CI installs it with Chocolatey.
 - **Publish path:** bump VERSION on `develop` → changelog → tests → fast-forward `release` → annotated tag `vX.Y.Z` → `release.yml`. Do not upload to object storage.
-- **Branches:** `develop` (default) and `release` (tags). Both are protected: no force-push, no delete.
+- **Branches:** develop **only** on `develop`. `release` is tags: fast-forward from `develop`, no feature commits. Both are protected: no force-push, no delete.
 - **Tag must match VERSION.** The workflow fails if `github.ref_name != v$(VERSION)`.
 - **Manifest hashes must be non-empty** 64-char hex. `generate_manifest.py` hashes local `dist\` files and points URLs at the **upcoming** tag assets.
 - **`previous`:** `generate_manifest.py` fetches the current latest manifest (best-effort) and embeds it when the version differs. First GitHub Release may have `previous: null`.
@@ -50,5 +50,5 @@ Build the portable EXE, updater, Windows installer, and publish them on GitHub R
 - [ ] Release assets include portable EXE, updater, Setup EXE, `app_manifest.json`
 
 ---
-last_updated: 2026-09-18
+last_updated: 2026-09-20
 
