@@ -15,10 +15,18 @@ import tempfile
 from pathlib import Path
 
 
+def config_dir() -> Path:
+    """Directory for config.json. ``IGP_CONFIG_DIR`` overrides (self-check)."""
+    override = os.environ.get("IGP_CONFIG_DIR", "").strip()
+    if override:
+        return Path(override)
+    base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    return Path(base) / "IGPPerformanceMonitor"
+
+
 def config_path() -> Path:
     """%APPDATA%/IGPPerformanceMonitor/config.json (APPDATA read at call time)."""
-    base = os.environ.get("APPDATA") or os.path.expanduser("~")
-    return Path(base) / "IGPPerformanceMonitor" / "config.json"
+    return config_dir() / "config.json"
 
 
 def load_config() -> dict:

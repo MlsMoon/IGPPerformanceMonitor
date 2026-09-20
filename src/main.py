@@ -25,6 +25,7 @@ from src.core.libpng_silence import install as install_libpng_silence
 # writes those warnings to C stderr, which a sys.stderr wrapper never sees.
 install_libpng_silence()
 
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox
 
 from src import selfcheck
@@ -110,15 +111,17 @@ def ensure_ui_locale() -> None:
     from src.core import app_config
     if app_config.get("locale"):
         return
+    from src.i18n import UI_LOCALES, set_locale
     from src.ui.dialogs.language_dialog import LanguageDialog
     dialog = LanguageDialog()
     if dialog.exec_() != QDialog.Accepted:
         sys.exit(0)
     locale = dialog.selected_locale()
+    if locale not in UI_LOCALES:
+        locale = UI_LOCALES[0] if UI_LOCALES else ""
     if not locale:
         sys.exit(0)
     app_config.set("locale", locale)
-    from src.i18n import set_locale
     set_locale(locale)
 
 
@@ -259,8 +262,11 @@ def main():
         sys.exit(selfcheck.run(args.selftest, app=args.process_name,
                                seconds=args.timed))
 
-    # Admin check — must come before QApplication for main UI
-    if not is_admin():
+    # Admin check — must come before QApplication for main UI.
+    # IGP_SKIP_ADMIN is only for `-t startup` (and similar) so a child process
+    # can stay in the same console. The packaged EXE still elevates via its
+    # manifest; this does not bypass UAC for users.
+    if os.environ.get("IGP_SKIP_ADMIN") != "1" and not is_admin():
         if relaunch_as_admin():
             sys.exit(0)
         show_admin_required_and_exit()
@@ -286,6 +292,14 @@ def main():
     app._igp_main_window = window
     window.show()
     app.setQuitOnLastWindowClosed(True)
+    probe = os.environ.get("IGP_STARTUP_PROBE")
+    if probe:
+        try:
+            with open(probe, "w", encoding="utf-8") as handle:
+                handle.write("shown\n")
+        except OSError:
+            pass
+        QTimer.singleShot(400, app.quit)
     sys.exit(app.exec_())
 
 

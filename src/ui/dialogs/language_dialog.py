@@ -5,10 +5,12 @@ locale has been chosen yet, so a single-language ``tr()`` would look like the
 app had already decided.
 """
 
-from PyQt5.QtCore import Qt
+import os
+
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
-    QButtonGroup, QDialog, QHBoxLayout, QLabel, QPushButton,
-    QRadioButton, QVBoxLayout,
+    QAbstractButton, QButtonGroup, QDialog, QHBoxLayout, QLabel,
+    QPushButton, QRadioButton, QVBoxLayout,
 )
 
 from src.i18n import (
@@ -30,6 +32,11 @@ class LanguageDialog(QDialog):
         # MainWindow.show() after exec_() would never appear.
         self.setAttribute(Qt.WA_QuitOnClose, False)
         self.selected: str | None = None
+        # Do not use QWidget.setProperty("locale", ...): "locale" is a real
+        # QWidget property of type QLocale, so the string comes back as a
+        # QLocale and `loc in UI_LOCALES` fails. First-run OK then sys.exit(0)
+        # in ensure_ui_locale — the window never opens (0.1.6).
+        self._locale_by_button: dict[QAbstractButton, str] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 16, 18, 14)
@@ -45,7 +52,7 @@ class LanguageDialog(QDialog):
         )
         for loc in UI_LOCALES:
             radio = QRadioButton(LOCALE_NATIVE_NAMES.get(loc, loc))
-            radio.setProperty("locale", loc)
+            self._locale_by_button[radio] = loc
             self._group.addButton(radio)
             root.addWidget(radio)
             if loc == current:
@@ -63,16 +70,21 @@ class LanguageDialog(QDialog):
 
         self._apply_theme()
         win_chrome.apply_to_widget(self)
+        # Subprocess self-check (`-t startup`) accepts without a click so it
+        # can watch whether MainWindow still appears after exec_() returns.
+        if os.environ.get("IGP_SELFCHECK_ACCEPT_LANGUAGE"):
+            QTimer.singleShot(0, self._accept)
 
     def selected_locale(self) -> str | None:
         return self.selected
 
     def _accept(self) -> None:
         button = self._group.checkedButton()
-        if button is not None:
-            loc = button.property("locale")
-            if loc in UI_LOCALES:
-                self.selected = loc
+        loc = self._locale_by_button.get(button) if button is not None else None
+        if loc in UI_LOCALES:
+            self.selected = loc
+        elif UI_LOCALES:
+            self.selected = UI_LOCALES[0]
         self.accept()
 
     def _apply_theme(self) -> None:

@@ -136,6 +136,7 @@ def _start_qt() -> None:
     # still opt in by exporting QT_QPA_PLATFORM=offscreen.
     global _CONFIG_SANDBOX
     _CONFIG_SANDBOX = tempfile.TemporaryDirectory(prefix="igp-selfcheck-appdata-")
+    os.environ.setdefault("IGP_REAL_APPDATA", os.environ.get("APPDATA", ""))
     os.environ["APPDATA"] = _CONFIG_SANDBOX.name
 
     from PyQt5.QtCore import qInstallMessageHandler

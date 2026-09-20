@@ -116,6 +116,13 @@ platform (offscreen has no fonts here). Grab both themes at two widths.
 `report.step(name)` around each block. Sandbox `APPDATA` (`selfcheck._start_qt`)
 before building a `MainWindow`.
 
+**A path that starts the process** (first-run picker, last-window-closed,
+UAC relaunch) must spawn `python -m src.main` or the packed EXE. `-t ui`
+already has a QApp inside `exec_()`, so it cannot see the 0.1.5 "dialog OK
+quits the app" bug. That is `-t startup`. In-process, still assert that
+`LanguageDialog` OK stores a locale *code* — `QWidget.setProperty("locale")`
+round-trips a `QLocale`, and that was 0.1.6.
+
 ### Prove a new check once
 
 Break the thing on purpose, confirm the area says so, restore. A check never

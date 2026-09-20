@@ -62,6 +62,7 @@ python -m src.selfcheck plan                   :: what to run for the current di
 python Scripts\check.py                        :: compile + import + lint
 python -m src.main -t ui                       :: self-check: window + PNGs
 python -m src.main -t update                   :: self-check: download/verify/cancel
+python -m src.main -t startup                  :: self-check: first-run language in a real child
 Scripts\selfcheck.bat capture -a Unity.exe -s 8  :: self-check: real capture (admin)
 python -m src.tests                            :: contract checks (schema changes)
 python -m src.selfcheck.docs_shots             :: user-guide screenshots → temp/docs-shots

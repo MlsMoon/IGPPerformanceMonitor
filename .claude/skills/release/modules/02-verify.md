@@ -20,6 +20,7 @@ Confirm the static gate is green, the self-check areas the change touches report
 python Scripts/check.py
 python -m src.main -t ui
 python -m src.main -t update
+python -m src.main -t startup
 python -m src.tests
 ```
 
@@ -55,6 +56,6 @@ No confirmation gate.
 ## Checklist
 
 - [ ] `python Scripts/check.py` OK
-- [ ] `-t ui` / `-t update`: no ERROR; screenshots opened
+- [ ] `-t ui` / `-t update` / `-t startup`: no ERROR; screenshots opened
 - [ ] `python -m src.tests` passed (skips allowed)
 - [ ] If pipeline changed and admin available: capture report has frames, enriched columns not all empty

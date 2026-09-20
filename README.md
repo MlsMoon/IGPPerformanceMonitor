@@ -120,6 +120,7 @@ Tagging `vX.Y.Z` on `release` (must match `VERSION`) runs `.github/workflows/rel
 python Scripts/check.py              :: compile + import + lint
 python -m src.main -t ui             :: window + screenshots
 python -m src.main -t update         :: download / verify / cancel
+python -m src.main -t startup        :: first-run language picker (real child process)
 python -m src.tests                  :: i18n / CSV / manifest contracts
 ```
 

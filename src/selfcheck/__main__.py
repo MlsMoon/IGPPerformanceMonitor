@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.cmd != "plan":
         parser.print_help()
-        print("\nTo run an area:  python -m src.main -t ui|capture|update|all",
+        print("\nTo run an area:  python -m src.main -t ui|startup|capture|update|all",
               file=sys.stderr)
         return 2
 

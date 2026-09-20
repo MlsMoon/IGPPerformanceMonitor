@@ -62,6 +62,7 @@ something the author will rationalize.
 python Scripts/check.py                        :: always, if src/ or Scripts/*.py moved
 python -m src.main -t ui                       :: window + four PNGs
 python -m src.main -t update                   :: localhost download / verify / cancel
+python -m src.main -t startup                  :: first-run language picker in a real child process
 Scripts\selfcheck.bat capture -a App.exe -s 8  :: real PresentMon (admin)
 python -m src.tests                            :: i18n / CSV / manifest contracts
 python -m src.selfcheck.docs_shots             :: user-guide PNGs (judge, then --publish-only)

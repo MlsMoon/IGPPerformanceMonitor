@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QFrame, QScrollArea
 from PyQt5.QtGui import QFontMetrics
 
@@ -638,35 +638,33 @@ def _shoot(report: Report, window: MainWindow, out_dir: str) -> None:
 
 
 def _exercise_language_startup(report: Report) -> None:
-    """First-run OK and Settings → Language used to leave no window.
+    """Settings → Language rebuilds MainWindow in-process.
 
-    Closing the picker (the only window so far) was lastWindowClosed, so
-    Qt queued quit() and MainWindow.show() after exec_() never appeared.
-    Rebuilding MainWindow on a language switch hit the same race.
+    First-run (dialog as the only window, then ``main()`` shows MainWindow)
+    is ``-t startup``: ``-t ui`` never enters ``main()``.
     """
-    report.section("language first-run / switch")
+    report.section("language switch")
     dialog = LanguageDialog()
     quits = dialog.testAttribute(Qt.WA_QuitOnClose)
     report.fact("language dialog WA_QuitOnClose", quits)
     if quits:
         report.error(
             "LanguageDialog still has WA_QuitOnClose; first-run OK quits "
-            "the app before MainWindow.show()"
+            "the app before MainWindow.show() — also run -t startup"
         )
-    QTimer.singleShot(0, dialog._accept)
-    dialog.exec_()
+    dialog._accept()
+    report.fact("language dialog selected on OK", dialog.selected)
+    if dialog.selected not in UI_LOCALES:
+        report.error(
+            "LanguageDialog OK did not store a locale code "
+            f"(got {dialog.selected!r}). QWidget.setProperty('locale', ...) "
+            "returns a QLocale, not the string — first-run then sys.exit(0)"
+        )
+    dialog.close()
 
     probe = MainWindow()
     probe.show()
     _spin(50)
-    after_dialog = probe.isVisible()
-    report.fact("window visible after language dialog", after_dialog)
-    if not after_dialog:
-        report.error(
-            "MainWindow hidden after LanguageDialog closed "
-            "(quitOnLastWindowClosed queued QApplication.quit())"
-        )
-
     probe._replace_main_window()
     _spin(50)
     replacement = getattr(QApplication.instance(), "_igp_main_window", None)

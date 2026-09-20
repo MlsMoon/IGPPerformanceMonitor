@@ -41,6 +41,11 @@ jobs:
           IGP_SKIP_CAPTURE_GEN: "1"
         run: python -m src.main -t ui
 
+      - name: Self-check — startup
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m src.main -t startup
+
       - name: Self-check — update
         run: python -m src.main -t update
 

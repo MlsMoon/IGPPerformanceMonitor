@@ -59,6 +59,11 @@ jobs:
           IGP_SKIP_CAPTURE_GEN: "1"
         run: python -m src.main -t ui
 
+      - name: Self-check — startup
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m src.main -t startup
+
       - name: Self-check — update
         run: python -m src.main -t update
 
@@ -72,6 +77,12 @@ jobs:
         env:
           CI: "true"
         run: Scripts\build.bat --no-pause
+
+      - name: Self-check — first-run on packed EXE
+        env:
+          QT_QPA_PLATFORM: offscreen
+          IGP_SELFCHECK_EXE: dist\IGPPerformanceMonitor.exe
+        run: python -m src.main -t startup
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
